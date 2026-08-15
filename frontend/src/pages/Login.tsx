@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BarChart3, Users, Pencil, BookOpen, GraduationCap, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
+import {
+  BarChart3, Users, Pencil, BookOpen, GraduationCap, ArrowRight,
+  ShieldCheck, Loader2, Eye, EyeOff,
+} from 'lucide-react';
 import { login } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { LogoWillay } from '../components/Sidebar';
@@ -23,6 +26,7 @@ export default function Login() {
   const [rol, setRol] = useState<Rol>('admin');
   const [correo, setCorreo] = useState(ES_DESARROLLO ? 'patricia.soto@sanmartin.edu.pe' : '');
   const [pass, setPass] = useState('');
+  const [verPass, setVerPass] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { iniciar } = useAuth();
@@ -99,16 +103,27 @@ export default function Login() {
               placeholder="usuario@colegio.edu.pe"
             />
           </label>
+
           <label className="block mb-5">
             <span className="label-mono">Contraseña</span>
-            <input
-              type="password"
-              value={pass}
-              onChange={e => setPass(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && entrar()}
-              className="mt-1.5 w-full rounded-[10px] border border-line bg-paper px-3.5 py-2.5 text-[13px] outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
-              placeholder="Tu contraseña"
-            />
+            <div className="relative mt-1.5">
+              <input
+                type={verPass ? 'text' : 'password'}
+                value={pass}
+                onChange={e => setPass(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && entrar()}
+                className="w-full rounded-[10px] border border-line bg-paper px-3.5 py-2.5 pr-11 text-[13px] outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
+                placeholder="Tu contraseña"
+              />
+              <button
+                type="button"
+                onClick={() => setVerPass(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink transition-colors cursor-pointer"
+                aria-label={verPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {verPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </label>
 
           {error && (
