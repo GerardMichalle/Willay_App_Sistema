@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "http://174.138.42.234:8080/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://api.willay.app/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
