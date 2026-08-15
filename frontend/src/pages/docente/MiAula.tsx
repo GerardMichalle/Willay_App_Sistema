@@ -11,7 +11,8 @@ import type { Alumno } from '../../types';
 export default function MiAula() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   useEffect(() => {
-    getAlumnos().then(a => setAlumnos(a.filter(x => x.grado === '5°' && x.seccion === 'A')));
+    // El backend ya acota la lista a las aulas asignadas al docente
+    getAlumnos().then(setAlumnos).catch(() => setAlumnos([]));
   }, []);
 
   const presentes = alumnos.filter(a => a.entradaHoy).length;

@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import ActivarCuenta from './pages/ActivarCuenta';
 import Home from './pages/Home';
 import Alumnos from './pages/academico/Alumnos';
+import Aulas from './pages/academico/Aulas';
+import Colegios from './pages/superadmin/Colegios';
 import Matriculas from './pages/academico/Matriculas';
 import Apoderados from './pages/academico/Apoderados';
 import Docentes from './pages/academico/Docentes';
@@ -36,6 +38,7 @@ export default function App() {
             {/* Gestión: admin y dirección */}
             <Route path="/matriculas" element={<Protegida roles={['admin', 'direccion']}><Matriculas /></Protegida>} />
             <Route path="/alumnos" element={<Protegida roles={['admin', 'direccion']}><Alumnos /></Protegida>} />
+            <Route path="/aulas" element={<Protegida roles={['admin', 'direccion']}><Aulas /></Protegida>} />
             <Route path="/apoderados" element={<Protegida roles={['admin', 'direccion']}><Apoderados /></Protegida>} />
             <Route path="/docentes" element={<Protegida roles={['admin', 'direccion']}><Docentes /></Protegida>} />
 
@@ -54,6 +57,9 @@ export default function App() {
             {/* Análisis: admin y dirección */}
             <Route path="/reportes" element={<Protegida roles={['admin', 'direccion']}><Reportes /></Protegida>} />
             <Route path="/estadisticas" element={<Protegida roles={['admin', 'direccion']}><Estadisticas /></Protegida>} />
+
+            {/* Panel del proveedor: SOLO super admin */}
+            <Route path="/colegios" element={<Protegida roles={['superadmin']}><Colegios /></Protegida>} />
 
             {/* Sistema: SOLO administrador */}
             <Route path="/usuarios" element={<Protegida roles={['admin']}><Usuarios /></Protegida>} />

@@ -3,7 +3,7 @@ import {
   GraduationCap, Users, HeartHandshake, BookOpen, Flag,
   Radio, ListOrdered, Megaphone, TrendingUp, PieChart,
   UserCog, ShieldCheck, Settings, LogOut, LayoutGrid, FileSignature,
-  Sparkles, IdCard, BookMarked,
+  Sparkles, IdCard, BookMarked, School, Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from './ui';
@@ -17,8 +17,17 @@ interface Group { label: string | null; items: Item[]; roles: Rol[] }
 const NAV: Group[] = [
   {
     label: null,
-    roles: ['direccion', 'admin', 'profesor', 'alumno', 'apoderado'],
+    roles: ['superadmin', 'direccion', 'admin', 'profesor', 'alumno', 'apoderado'],
     items: [{ to: '/', label: 'Inicio', icon: <LayoutGrid size={IC} /> }],
+  },
+  // ── Proveedor (Willay) ────────────────────────────────────────────
+  {
+    label: 'Plataforma',
+    roles: ['superadmin'],
+    items: [
+      { to: '/colegios', label: 'Instituciones', icon: <Building2 size={IC} /> },
+      { to: '/cursos', label: 'Catálogo de cursos', icon: <Sparkles size={IC} /> },
+    ],
   },
   // ── Admin y Dirección ─────────────────────────────────────────────
   {
@@ -27,6 +36,7 @@ const NAV: Group[] = [
     items: [
       { to: '/matriculas', label: 'Matrículas', icon: <FileSignature size={IC} /> },
       { to: '/alumnos', label: 'Alumnos', icon: <GraduationCap size={IC} /> },
+      { to: '/aulas', label: 'Aulas', icon: <School size={IC} /> },
       { to: '/apoderados', label: 'Apoderados', icon: <HeartHandshake size={IC} /> },
       { to: '/docentes', label: 'Docentes', icon: <Users size={IC} /> },
     ],

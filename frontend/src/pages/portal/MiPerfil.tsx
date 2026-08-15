@@ -1,40 +1,99 @@
-import { Camera, Download, Wifi, Flame, CheckCircle2, Award } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Camera, Download, Wifi, Flame, CheckCircle2, Award, Loader2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { PanelHead, Mono, Pill, cn } from '../../components/ui';
 import { LogoWillay } from '../../components/Sidebar';
+import { getAlumnos, getQrAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo } from '../../services/api';
+import type { Alumno } from '../../types';
 
-/** QR ilustrativo generado de forma determinística a partir del código.
- *  TODO Spring Boot: reemplazar por el QR real emitido por el backend
- *  (GET /api/alumnos/{codigo}/qr) — mismo token que valida el lector. */
-function QrIlustrativo({ seed, size = 108 }: { seed: string; size?: number }) {
-  const n = 21;
-  const s = seed.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const cells: boolean[][] = Array.from({ length: n }, (_, i) =>
-    Array.from({ length: n }, (_, j) => ((i * 31 + j * 17 + s * 7 + i * j) % 9) < 4),
-  );
-  const finder = (r: number, c: number) => {
-    for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) {
-      const borde = i === 0 || i === 6 || j === 0 || j === 6;
-      const centro = i >= 2 && i <= 4 && j >= 2 && j <= 4;
-      cells[r + i][c + j] = borde || centro;
-    }
-    for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++) {
-      const ri = r + i, cj = c + j;
-      if (ri >= 0 && ri < n && cj >= 0 && cj < n && (i === -1 || i === 7 || j === -1 || j === 7)) cells[ri][cj] = false;
-    }
-  };
-  finder(0, 0); finder(0, n - 7); finder(n - 7, 0);
-  const cs = size / n;
-  return (
-    <svg width={size} height={size} className="rounded-[8px] bg-white p-1.5 border border-line" aria-label="Código QR del alumno">
-      {cells.map((fila, i) => fila.map((v, j) => v && (
-        <rect key={`${i}-${j}`} x={j * cs} y={i * cs} width={cs} height={cs} fill="#17181A" />
-      )))}
-    </svg>
-  );
+/**
+ * Credencial digital del estudiante.
+ * El QR lo emite el backend (GET /api/credenciales/alumno/{id}/qr) y no
+ * contiene datos personales: solo identificadores que el lector valida.
+ */
+function QrCredencial({ alumnoId, size = 108 }: { alumnoId: number | null; size?: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (alumnoId == null) return;
+    let vigente = true;
+    let creada: string | null = null;
+    getQrAlumno(alumnoId)
+      .then(u => { if (vigente) { creada = u; setUrl(u); } })
+      .catch(() => setError(true));
+    return () => { vigente = false; if (creada) URL.revokeObjectURL(creada); };
+  }, [alumnoId]);
+
+  if (error || alumnoId == null) {
+    return (
+      <div style={{ width: size, height: size }}
+        className="grid place-items-center rounded-[8px] bg-white/10 text-white/50 text-[10px] text-center px-2">
+        Credencial no disponible
+      </div>
+    );
+  }
+  if (!url) {
+    return (
+      <div style={{ width: size, height: size }} className="grid place-items-center rounded-[8px] bg-white/10">
+        <Loader2 size={18} className="animate-spin text-white/60" />
+      </div>
+    );
+  }
+  return <img src={url} width={size} height={size} alt="Código QR del estudiante"
+              className="rounded-[8px] bg-white p-1.5 border border-line" />;
 }
 
 export default function MiPerfil() {
+  const [alumnoId, setAlumnoId] = useState<number | null>(null);
+  const [yo, setYo] = useState<Alumno | null>(null);
+  const [descargando, setDescargando] = useState(false);
+  const [foto, setFoto] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const archivoRef = useRef<HTMLInputElement>(null);
+
+  async function cambiarFoto(f: File | null) {
+    if (!f) return;
+    setSubiendo(true);
+    try {
+      const ruta = await subirFotoPerfil(f);
+      setFoto(await getEnlaceArchivo(uuidDeRutaArchivo(ruta)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo subir la imagen');
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  useEffect(() => {
+    // El backend devuelve únicamente al propio estudiante cuando el rol es ALUMNO
+    getAlumnos()
+      .then(l => {
+        const a = l[0] ?? null;
+        setYo(a);
+        setAlumnoId(a ? Number(a.id) : null);
+        if (a?.fotoUrl) {
+          getEnlaceArchivo(uuidDeRutaArchivo(a.fotoUrl)).then(setFoto).catch(() => setFoto(null));
+        }
+      })
+      .catch(() => setAlumnoId(null));
+  }, []);
+
+  async function descargarQr() {
+    if (alumnoId == null) return;
+    setDescargando(true);
+    try {
+      const url = await getQrAlumno(alumnoId);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'credencial-willay.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDescargando(false);
+    }
+  }
+
   return (
     <>
       <Topbar title="Mi perfil" subtitle="Tu información, tu tarjeta y tu progreso" />
@@ -47,17 +106,29 @@ export default function MiPerfil() {
           </div>
           <div className="px-7 pb-6 flex flex-wrap items-end gap-5">
             <div className="relative -mt-9">
-              <span className="grid place-items-center w-[84px] h-[84px] rounded-full bg-brand-soft text-brand text-[26px] font-bold border-4 border-paper shadow-sm">VQ</span>
-              <button className="absolute -bottom-1 -right-1 grid place-items-center w-8 h-8 rounded-full bg-ink text-white hover:bg-brand transition-colors cursor-pointer" title="Cambiar foto">
-                <Camera size={14} />
+              {foto ? (
+                <img src={foto} alt="Foto de perfil"
+                  className="w-[84px] h-[84px] rounded-full object-cover border-4 border-paper shadow-sm" />
+              ) : (
+                <span className="grid place-items-center w-[84px] h-[84px] rounded-full bg-brand-soft text-brand text-[26px] font-bold border-4 border-paper shadow-sm">{yo ? (yo.nombres[0] ?? "") + (yo.apellidos[0] ?? "") : "—"}</span>
+              )}
+              <button
+                onClick={() => archivoRef.current?.click()}
+                disabled={subiendo}
+                className="absolute -bottom-1 -right-1 grid place-items-center w-8 h-8 rounded-full bg-ink text-white hover:bg-brand transition-colors cursor-pointer disabled:opacity-60"
+                title="Cambiar foto"
+              >
+                {subiendo ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
               </button>
+              <input ref={archivoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                onChange={e => void cambiarFoto(e.target.files?.[0] ?? null)} />
             </div>
             <div className="flex-1 min-w-[200px] pb-1">
-              <h2 className="text-[19px] font-bold tracking-tight">Valeria Quispe Rojas</h2>
+              <h2 className="text-[19px] font-bold tracking-tight">{yo ? `${yo.nombres} ${yo.apellidos}` : "—"}</h2>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <Pill tone="brand">5° "A" · Primaria</Pill>
-                <Mono className="!text-[11px]">COD. A-2041</Mono>
-                <Mono className="!text-[11px]">Tutor: Carlos Mendoza</Mono>
+                <Pill tone="brand">{yo ? `${yo.grado} "${yo.seccion}"` : "Sin aula"}</Pill>
+                <Mono className="!text-[11px]">COD. {yo?.codigo ?? "—"}</Mono>
+                <Mono className="!text-[11px]">{yo?.apoderado ? `Apod. ${yo.apoderado}` : ""}</Mono>
               </div>
             </div>
             <div className="flex gap-6 pb-1">
@@ -94,17 +165,21 @@ export default function MiPerfil() {
               <div className="flex items-end justify-between gap-4 mt-5 relative">
                 <div>
                   <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/50">Alumna</div>
-                  <div className="font-semibold text-[15px] mt-0.5">Valeria Quispe R.</div>
-                  <div className="font-mono text-[11px] text-white/70 mt-2">5° "A" · A-2041</div>
-                  <div className="font-mono text-[13px] font-semibold mt-3 tracking-wider">RF-88213</div>
+                  <div className="font-semibold text-[15px] mt-0.5">{yo ? `${yo.nombres} ${yo.apellidos.split(" ")[0]}` : "—"}</div>
+                  <div className="font-mono text-[11px] text-white/70 mt-2">{yo ? `${yo.grado} "${yo.seccion}" · ${yo.codigo}` : "—"}</div>
+                  <div className="font-mono text-[13px] font-semibold mt-3 tracking-wider">{yo?.tarjetaRfid ?? "Sin tarjeta"}</div>
                 </div>
-                <QrIlustrativo seed="A-2041-RF-88213" />
+                <QrCredencial alumnoId={alumnoId} />
               </div>
             </div>
             <div className="flex items-center justify-between mt-4">
               <p className="text-[11.5px] text-ink-3">I.E.P. San Martín · válida 2026</p>
-              <button className="flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors cursor-pointer">
-                <Download size={13} /> Descargar QR
+              <button
+                onClick={descargarQr}
+                disabled={alumnoId == null || descargando}
+                className="flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors cursor-pointer disabled:opacity-40"
+              >
+                {descargando ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Descargar QR
               </button>
             </div>
           </div>

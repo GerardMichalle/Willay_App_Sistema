@@ -1,109 +1,202 @@
-import { useEffect, useState } from 'react';
-import { Radio, DoorOpen, LogIn, LogOut } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Radio, LogIn, LogOut, Loader2, Wifi, WifiOff, Play, CreditCard } from 'lucide-react';
 import Topbar from '../../components/Topbar';
-import { Avatar, Mono, EstadoBadge, PanelHead, Pill, cn } from '../../components/ui';
-import { getLecturasHoy } from '../../services/api';
+import { Avatar, Mono, Pill, Button, StatCard, PanelHead, cn } from '../../components/ui';
+import Modal, { Campo, claseInput } from '../../components/Modal';
+import { getLecturasVivo, abrirCanalAsistencia, simularLectura, getPuntosAcceso } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import type { LecturaRfid } from '../../types';
+import type { LecturaVivo, PuntoAccesoApi } from '../../types';
 
-const SIM: Omit<LecturaRfid, 'id' | 'hora'>[] = [
-  { alumnoId: 'a1', nombre: 'Valeria Quispe Rojas', grado: '5°A', tarjeta: 'RF-88213', tipo: 'entrada', puerta: 'Puerta principal', estado: 'puntual' },
-  { alumnoId: 'a2', nombre: 'Diego Fernández Luna', grado: '5°A', tarjeta: 'RF-88214', tipo: 'salida', puerta: 'Puerta principal', estado: 'tardanza' },
-  { alumnoId: 'a3', nombre: 'Camila Torres Vega', grado: '4°B', tarjeta: 'RF-88215', tipo: 'entrada', puerta: 'Puerta posterior', estado: 'puntual' },
-  { alumnoId: 'a6', nombre: 'Sebastián Chávez Mori', grado: '2°A', tarjeta: 'RF-88218', tipo: 'salida', puerta: 'Puerta principal', estado: 'tardanza' },
-];
-
-/**
- * TODO Spring Boot: este feed se conecta al lector físico vía
- * SSE /api/asistencia/stream. El lector envía POST /api/asistencia/lectura
- * y el backend re-emite el evento aquí en tiempo real.
- */
 export default function ControlVivo() {
   const { usuario } = useAuth();
   const esProfesor = usuario?.rol === 'profesor';
-  const [lecturas, setLecturas] = useState<LecturaRfid[]>([]);
-  const [ultima, setUltima] = useState<LecturaRfid | null>(null);
+  const esAdmin = usuario?.rol === 'admin';
 
-  useEffect(() => {
-    getLecturasHoy().then(todas => {
-      // El docente SOLO ve su aula. TODO Spring Boot: el backend ya envía filtrado.
-      const l = esProfesor ? todas.filter(x => x.grado === '5°A') : todas;
-      setLecturas(l); setUltima(l[0] ?? null);
-    });
-    let i = 0;
-    const t = setInterval(() => {
-      const pool = esProfesor ? SIM.filter(s => s.grado === '5°A') : SIM;
-      const base = pool[i % pool.length]; i++;
-      const nueva: LecturaRfid = {
-        ...base,
-        id: `live-${Date.now()}`,
-        hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-      };
-      setUltima(nueva);
-      setLecturas(prev => [nueva, ...prev].slice(0, 30));
-    }, 6000);
-    return () => clearInterval(t);
+  const [lecturas, setLecturas] = useState<LecturaVivo[]>([]);
+  const [conectado, setConectado] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [lectores, setLectores] = useState<PuntoAccesoApi[]>([]);
+
+  // Simulador: permite verificar el flujo completo sin el hardware
+  const [simAbierto, setSimAbierto] = useState(false);
+  const [tarjeta, setTarjeta] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [errorSim, setErrorSim] = useState<string | null>(null);
+  const cerrarCanal = useRef<(() => void) | null>(null);
+
+  const cargar = useCallback(async () => {
+    try {
+      setLecturas(await getLecturasVivo());
+    } catch { /* sin conexión */ } finally {
+      setCargando(false);
+    }
   }, []);
+
+  useEffect(() => { void cargar(); }, [cargar]);
+  useEffect(() => { if (esAdmin) getPuntosAcceso().then(setLectores).catch(() => {}); }, [esAdmin]);
+
+  // Canal en vivo: cada lectura del lector aparece al instante
+  useEffect(() => {
+    const cerrar = abrirCanalAsistencia(
+      lectura => {
+        setConectado(true);
+        setLecturas(prev => [lectura, ...prev.filter(l => l.id !== lectura.id)].slice(0, 60));
+      },
+      () => setConectado(false),
+    );
+    cerrarCanal.current = cerrar;
+    setConectado(true);
+    return () => cerrar();
+  }, []);
+
+  async function enviarSimulacion() {
+    setErrorSim(null);
+    setEnviando(true);
+    try {
+      await simularLectura(tarjeta.trim().toUpperCase(), apiKey.trim());
+      setSimAbierto(false);
+      setTarjeta('');
+      await cargar();
+    } catch (e) {
+      setErrorSim(e instanceof Error ? e.message : 'No se pudo registrar la lectura');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const entradas = lecturas.filter(l => l.tipo === 'ENTRADA').length;
+  const salidas = lecturas.filter(l => l.tipo === 'SALIDA').length;
+  const tardanzas = lecturas.filter(l => l.estado === 'TARDANZA').length;
+  const enLinea = lectores.filter(l => l.enLinea).length;
 
   return (
     <>
       <Topbar
-        title={esProfesor ? 'Asistencia en vivo · 5° A' : 'Control en vivo'}
-        subtitle={esProfesor ? 'Solo se muestran los estudiantes de tu aula' : 'Lecturas RFID de todas las puertas · conectado'}
+        title={esProfesor ? `Asistencia en vivo${usuario?.aula ? ` · ${usuario.aula}` : ''}` : 'Control en vivo'}
+        subtitle={esProfesor ? 'Solo se muestran los estudiantes de tus aulas' : 'Lecturas registradas por los lectores de las puertas'}
       />
-      <div className="px-4 sm:px-8 pb-10 max-w-[1280px] grid xl:grid-cols-[1fr_1.4fr] gap-4 items-start">
+      <div className="px-4 sm:px-8 pb-10 max-w-[1280px] space-y-4">
 
-        {/* Última lectura, en grande: pensada para proyectar en portería */}
-        <div className="card p-8 text-center sticky top-6">
-          <div className="flex items-center justify-center gap-2 label-mono">
-            <span className="w-2.5 h-2.5 rounded-full bg-brand dot-live" /> Última lectura
-          </div>
-          {ultima && (
-            <div key={ultima.id} className="animate-rise">
-              <div className="mx-auto mt-6 w-20 h-20 grid place-items-center">
-                <Avatar nombre={ultima.nombre} size="lg" />
-              </div>
-              <h2 className="mt-4 text-[22px] font-bold tracking-tight">{ultima.nombre}</h2>
-              <Mono className="!text-[12px]">{ultima.grado} · {ultima.tarjeta}</Mono>
-              <div className="mt-5 font-mono text-[40px] font-semibold tracking-tight leading-none">
-                {ultima.hora}
-              </div>
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <Pill tone={ultima.tipo === 'entrada' ? 'ok' : 'info'}>
-                  {ultima.tipo === 'entrada' ? <LogIn size={11} /> : <LogOut size={11} />}
-                  {ultima.tipo === 'entrada' ? 'Entrada' : 'Salida'}
-                </Pill>
-                <EstadoBadge estado={ultima.estado} />
-              </div>
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-[12px] text-ink-3">
-                <DoorOpen size={13} /> {ultima.puerta}
-              </p>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className={cn('inline-flex items-center gap-2 rounded-[10px] border px-3.5 py-2 text-[12.5px] font-semibold',
+            conectado ? 'border-ok/30 bg-ok-soft text-ok' : 'border-line bg-canvas text-ink-3')}>
+            {conectado ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {conectado ? 'Canal en vivo conectado' : 'Sin conexión al canal'}
+            {conectado && <span className="w-1.5 h-1.5 rounded-full bg-ok dot-live" />}
+          </span>
+
+          {esAdmin && (
+            <Button variant="ghost" onClick={() => setSimAbierto(true)}>
+              <Play size={14} /> Simular lectura
+            </Button>
           )}
         </div>
 
-        {/* Feed del día */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <StatCard icon={<LogIn size={19} strokeWidth={1.7} />} label="Entradas hoy"
+            value={String(entradas)} note="Registradas por el lector" noteTone="ok" />
+          <StatCard icon={<LogOut size={19} strokeWidth={1.7} />} label="Salidas hoy"
+            value={String(salidas)} note="Registradas por el lector" noteTone="neutral" />
+          <StatCard icon={<Radio size={19} strokeWidth={1.7} />} label="Tardanzas"
+            value={String(tardanzas)} note="Ingresaron fuera de hora" noteTone="warn" />
+          {esAdmin && (
+            <StatCard icon={<Wifi size={19} strokeWidth={1.7} />} label="Lectores en línea"
+              value={String(enLinea)} denom={String(lectores.length)}
+              note={enLinea ? 'Reportando actividad' : 'Ninguno reportando'} noteTone={enLinea ? 'ok' : 'bad'} />
+          )}
+        </div>
+
         <div className="card p-6">
           <PanelHead
-            title="Registro del día"
-            sub={`${lecturas.length} lecturas · Jueves 30 de julio`}
-            right={<Pill tone="brand"><Radio size={11} /> 4 lectores en línea</Pill>}
+            title="Flujo de accesos"
+            sub={cargando ? 'Cargando…' : `${lecturas.length} lecturas registradas hoy`}
           />
-          <div>
-            {lecturas.map((l, i) => (
-              <div key={l.id} className={cn('flex items-center gap-3.5 py-3 animate-slide-in', i > 0 && 'border-t border-line')}>
-                <Avatar nombre={l.nombre} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold truncate">{l.nombre}</p>
-                  <Mono className="!text-[10.5px]">{l.grado} · {l.tarjeta} · {l.puerta}</Mono>
+
+          {cargando ? (
+            <div className="py-12 grid place-items-center text-ink-3"><Loader2 size={22} className="animate-spin" /></div>
+          ) : lecturas.length === 0 ? (
+            <div className="py-12 text-center">
+              <span className="inline-grid place-items-center w-12 h-12 rounded-[14px] bg-canvas text-ink-3 mb-4">
+                <CreditCard size={22} />
+              </span>
+              <p className="text-[14px] font-semibold">Aún no hay lecturas registradas hoy</p>
+              <p className="text-[12.5px] text-ink-3 mt-1.5 max-w-[420px] mx-auto">
+                Cuando un estudiante pase su tarjeta por el lector, aparecerá aquí al instante.
+                {esAdmin && ' Puedes probarlo con el botón "Simular lectura".'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {lecturas.map((l, i) => (
+                <div key={`${l.id}-${i}`}
+                  className={cn('flex items-center gap-3.5 rounded-[10px] px-3 py-2.5 -mx-1 transition-colors',
+                    i === 0 && 'animate-slide-in bg-brand-faint')}>
+                  <Avatar nombre={l.nombre} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold truncate">{l.nombre}</p>
+                    <Mono className="!text-[10.5px]">{l.grado} · {l.tarjeta} · {l.puntoAcceso}</Mono>
+                  </div>
+                  <span className={cn('inline-flex items-center gap-1.5 text-[11.5px] font-semibold',
+                    l.tipo === 'ENTRADA' ? 'text-ok' : 'text-info')}>
+                    {l.tipo === 'ENTRADA' ? <LogIn size={12} /> : <LogOut size={12} />}
+                    {l.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}
+                  </span>
+                  <Mono className="font-semibold !text-ink !text-[13px] w-[46px] text-right">{l.hora}</Mono>
+                  {l.estado === 'TARDANZA' && <Pill tone="warn">Tardanza</Pill>}
                 </div>
-                <Pill tone={l.tipo === 'entrada' ? 'ok' : 'info'}>{l.tipo === 'entrada' ? 'Entrada' : 'Salida'}</Pill>
-                <Mono className="font-semibold !text-ink w-[64px] text-right">{l.hora}</Mono>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Simulador de lectura: reproduce exactamente lo que enviará el lector */}
+      <Modal
+        abierto={simAbierto}
+        titulo="Simular una lectura"
+        subtitulo="Reproduce la petición que enviará el lector físico"
+        onCerrar={() => setSimAbierto(false)}
+        pie={
+          <>
+            <Button variant="ghost" onClick={() => setSimAbierto(false)}>Cancelar</Button>
+            <Button onClick={enviarSimulacion} disabled={!tarjeta.trim() || !apiKey.trim() || enviando}>
+              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Enviar
+            </Button>
+          </>
+        }
+      >
+        {errorSim && (
+          <p className="mb-4 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorSim}</p>
+        )}
+
+        <Campo etiqueta="Código de tarjeta" requerido>
+          <input className={`${claseInput} font-mono`} value={tarjeta} autoFocus
+            onChange={e => setTarjeta(e.target.value.toUpperCase())} placeholder="RF-88213" />
+          <p className="text-[11px] text-ink-3 mt-1.5">
+            También acepta el código del estudiante (A-2041) o el contenido de su QR.
+          </p>
+        </Campo>
+
+        <Campo etiqueta="Credencial del lector" requerido>
+          <input className={`${claseInput} font-mono`} value={apiKey}
+            onChange={e => setApiKey(e.target.value)} placeholder="wly_…" />
+          <p className="text-[11px] text-ink-3 mt-1.5">
+            Se obtiene al registrar el lector en Configuración → Lectores. En el entorno de
+            demostración, la clave del lector precargado es <b className="font-mono">lector-demo-key</b>.
+          </p>
+        </Campo>
+
+        <div className="rounded-[10px] border border-line bg-canvas p-3.5">
+          <p className="label-mono mb-1.5">Petición equivalente</p>
+          <pre className="text-[10.5px] font-mono text-ink-2 whitespace-pre-wrap leading-relaxed">
+{`POST /api/asistencia/lectura
+X-Api-Key: ${apiKey || '<credencial>'}
+
+{ "tarjeta": "${tarjeta || 'RF-88213'}" }`}
+          </pre>
+        </div>
+      </Modal>
     </>
   );
 }

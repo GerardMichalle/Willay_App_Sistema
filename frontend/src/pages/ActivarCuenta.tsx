@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { LogoWillay } from '../components/Sidebar';
 import { Avatar, Mono, Pill, cn } from '../components/ui';
+import { verificarActivacion, completarActivacion, type IdentidadActivacion } from '../services/api';
 
 type Paso = 'codigo' | 'contrasena' | 'listo';
 
@@ -29,6 +30,8 @@ export default function ActivarCuenta() {
   const [pass2, setPass2] = useState('');
   const [verPass, setVerPass] = useState(false);
   const [activando, setActivando] = useState(false);
+  const [identidad, setIdentidad] = useState<IdentidadActivacion | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
   const codigoCompleto = digitos.every(d => d !== '');
@@ -56,17 +59,37 @@ export default function ActivarCuenta() {
   }
 
   async function verificar() {
+    setError(null);
     setVerificando(true);
-    await new Promise(r => setTimeout(r, 900)); // TODO: POST /api/activacion/verificar
-    setVerificando(false);
-    setPaso('contrasena');
+    try {
+      // Verificación real: el backend valida el código + DNI y revela la identidad
+      const id = await verificarActivacion(digitos.join(''), dni);
+      setIdentidad(id);
+      setPaso('contrasena');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo verificar el código');
+    } finally {
+      setVerificando(false);
+    }
   }
   async function activar() {
+    setError(null);
     setActivando(true);
-    await new Promise(r => setTimeout(r, 900)); // TODO: POST /api/activacion/completar
-    setActivando(false);
-    setPaso('listo');
+    try {
+      await completarActivacion(digitos.join(''), dni, pass);
+      setPaso('listo');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo activar la cuenta');
+    } finally {
+      setActivando(false);
+    }
   }
+
+  const ROL_LABEL: Record<string, string> = {
+    APODERADO: 'Apoderado', ALUMNO: 'Estudiante', DOCENTE: 'Docente',
+    DIRECCION: 'Dirección', ADMIN: 'Administrador',
+  };
+  const primerNombre = identidad?.nombreCompleto.split(' ')[0] ?? '';
 
   return (
     <div className="min-h-screen grid place-items-center bg-canvas px-4 relative overflow-hidden">
@@ -153,6 +176,9 @@ export default function ActivarCuenta() {
                 />
               </label>
 
+              {error && (
+                <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{error}</p>
+              )}
               <button
                 onClick={verificar}
                 disabled={!codigoCompleto || !dniValido || verificando}
@@ -173,22 +199,22 @@ export default function ActivarCuenta() {
               {/* El sistema te reconoció: no eliges rol, ya sabe quién eres */}
               <div className="rounded-[12px] border border-ok/25 bg-ok-soft/50 p-4 animate-pop">
                 <div className="flex items-center gap-3">
-                  <Avatar nombre="Rosa Rojas" size="lg" />
+                  <Avatar nombre={identidad?.nombreCompleto ?? ''} size="lg" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 text-ok text-[11px] font-semibold">
                       <CheckCircle2 size={13} /> ¡Te encontramos!
                     </div>
-                    <p className="text-[14.5px] font-bold tracking-tight mt-0.5">Rosa Rojas Medina</p>
+                    <p className="text-[14.5px] font-bold tracking-tight mt-0.5">{identidad?.nombreCompleto}</p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Pill tone="brand">Apoderada</Pill>
-                      <Mono className="!text-[10.5px]">de Valeria Quispe · 5° "A"</Mono>
+                      <Pill tone="brand">{ROL_LABEL[identidad?.rol ?? ''] ?? identidad?.rol}</Pill>
+                      <Mono className="!text-[10.5px]">{identidad?.vinculo}</Mono>
                     </div>
                   </div>
                 </div>
               </div>
 
               <p className="text-[12.5px] text-ink-3 mt-4 mb-4">
-                Solo falta crear tu contraseña. Con ella entrarás a Willay para ver la asistencia, notas y comunicados de Valeria.
+                Solo falta crear tu contraseña. Con ella entrarás a Willay con tu cuenta personal.
               </p>
 
               <label className="block mb-4">
@@ -238,9 +264,12 @@ export default function ActivarCuenta() {
                 {pass2.length > 0 && !coincide && <p className="text-[10.5px] text-bad mt-1.5">Las contraseñas no coinciden.</p>}
               </label>
 
+              {error && (
+                <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{error}</p>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setPaso('codigo')}
+                  onClick={() => { setError(null); setPaso('codigo'); }}
                   className="grid place-items-center w-11 rounded-[10px] border border-line text-ink-2 hover:text-ink hover:border-line-2 transition-colors cursor-pointer"
                   aria-label="Volver"
                 >
@@ -263,9 +292,9 @@ export default function ActivarCuenta() {
               <div className="mx-auto grid place-items-center w-16 h-16 rounded-full bg-ok-soft text-ok">
                 <PartyPopper size={26} />
               </div>
-              <h2 className="text-[18px] font-bold tracking-tight mt-4">¡Tu cuenta está lista, Rosa!</h2>
+              <h2 className="text-[18px] font-bold tracking-tight mt-4">{`¡Tu cuenta está lista, ${primerNombre}!`}</h2>
               <p className="text-[12.5px] text-ink-3 mt-1.5 max-w-[280px] mx-auto">
-                Desde ahora recibirás los avisos de entrada y salida de Valeria, y podrás ver su libreta y comunicados.
+                Ya puedes iniciar sesión con tu correo y la contraseña que creaste.
               </p>
               <button
                 onClick={() => nav('/login')}

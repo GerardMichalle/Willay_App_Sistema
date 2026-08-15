@@ -1,0 +1,57 @@
+# Willay · PRODUCCIÓN
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Diferencias clave frente a desarrollo:
+#   · perfil prod  → la base arranca VACÍA (sin datos demo)
+#   · secretos por variables de entorno (archivo .env, nunca en git)
+#   · PostgreSQL SIN puerto publicado: solo accesible desde la red interna
+#   · reinicio automático y límites de log
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: willay-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?falta DB_NAME}
+      POSTGRES_USER: ${DB_USER:?falta DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+    volumes:
+      - willay_pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  api:
+    build: .
+    container_name: willay-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+      CORS_ORIGENES: ${CORS_ORIGENES:?falta CORS_ORIGENES}
+      BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      LOG_FILE: /var/log/willay/willay.log
+    volumes:
+      - ./logs:/var/log/willay
+    ports:
+      - "127.0.0.1:8080:8080"   # solo local: el proxy TLS publica al exterior
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  willay_pgdata:

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { Usuario } from '../types';
+import { sesionGuardada, logout as apiLogout } from '../services/api';
 
 interface AuthCtx {
   usuario: Usuario | null;
@@ -10,10 +11,16 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx>({ usuario: null, iniciar: () => {}, cerrar: () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
-  // TODO Spring Boot: persistir JWT en memoria + refresh token httpOnly
+  // Restaura la sesión guardada: al recargar la página sigues dentro.
+  const [usuario, setUsuario] = useState<Usuario | null>(() => sesionGuardada()?.usuario ?? null);
+
+  function cerrar() {
+    void apiLogout();          // revoca los refresh tokens en el backend
+    setUsuario(null);
+  }
+
   return (
-    <Ctx.Provider value={{ usuario, iniciar: setUsuario, cerrar: () => setUsuario(null) }}>
+    <Ctx.Provider value={{ usuario, iniciar: setUsuario, cerrar }}>
       {children}
     </Ctx.Provider>
   );

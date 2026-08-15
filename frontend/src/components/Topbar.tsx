@@ -1,5 +1,8 @@
-import { Search, Bell } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import Notificaciones from './Notificaciones';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
 
@@ -20,6 +23,18 @@ const PLACEHOLDER: Record<string, string> = {
 
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { usuario } = useAuth();
+  const nav = useNavigate();
+  const [busqueda, setBusqueda] = useState('');
+
+  /** El buscador lleva al módulo donde ese término tiene sentido para el rol. */
+  function buscar(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter' || !busqueda.trim()) return;
+    const destino = usuario?.rol === 'admin' || usuario?.rol === 'direccion'
+      ? '/alumnos'
+      : usuario?.rol === 'profesor' ? '/asistencia/historial' : '/comunicados';
+    nav(destino);
+    setBusqueda('');
+  }
   return (
     <header className="flex items-center justify-between gap-4 px-4 sm:px-8 pt-5 sm:pt-6 pb-5">
       <div className="min-w-0">
@@ -31,14 +46,14 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
           <Search size={15} className="text-ink-3" />
           <input
             placeholder={PLACEHOLDER[usuario?.rol ?? 'admin']}
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            onKeyDown={buscar}
             className="w-full bg-transparent outline-none text-[13px] placeholder:text-ink-3"
           />
         </label>
         <ThemeToggle />
-        <button className="relative grid place-items-center w-10 h-10 rounded-[10px] border border-line bg-paper text-ink-2 hover:text-ink transition-colors cursor-pointer" aria-label="Notificaciones">
-          <Bell size={16} />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand border-2 border-paper" />
-        </button>
+        <Notificaciones />
         {usuario && <Avatar nombre={usuario.nombre} size="lg" />}
       </div>
     </header>

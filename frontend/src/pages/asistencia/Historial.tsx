@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download, ChevronDown } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, EstadoBadge, Mono, Button, FilterTabs } from '../../components/ui';
-import { getAlumnos } from '../../services/api';
+import { getAlumnos, exportarAsistencia } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import type { Alumno } from '../../types';
 
@@ -11,28 +11,26 @@ export default function Historial() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [tab, setTab] = useState('Hoy');
   useEffect(() => {
-    getAlumnos().then(todos => {
-      // Cada rol ve solo lo suyo. TODO Spring Boot: el backend filtra por JWT.
-      let lista = todos;
-      if (usuario?.rol === 'alumno') lista = todos.filter(a => a.codigo === usuario.codigoAlumno);
-      if (usuario?.rol === 'apoderado') lista = todos.filter(a => a.codigo === usuario.hijoCodigo);
-      if (usuario?.rol === 'profesor') lista = todos.filter(a => a.grado === '5°' && a.seccion === 'A');
-      setAlumnos(lista);
-    });
+    // El backend ya aplica el alcance por rol (aula del docente, hijos del apoderado)
+    getAlumnos().then(setAlumnos).catch(() => setAlumnos([]));
   }, [usuario]);
 
   return (
     <>
       <Topbar
-        title={usuario?.rol === 'alumno' ? 'Mi asistencia' : usuario?.rol === 'apoderado' ? 'Asistencia de Valeria' : 'Historial de asistencia'}
-        subtitle={usuario?.rol === 'profesor' ? 'Registros de tu aula · 5° A' : 'Registros con fecha, hora de entrada y salida'}
+        title={usuario?.rol === 'alumno' ? 'Mi asistencia'
+          : usuario?.rol === 'apoderado' ? 'Asistencia de mis hijos'
+          : 'Historial de asistencia'}
+        subtitle={usuario?.rol === 'profesor'
+          ? `Registros de tu aula${usuario.aula ? ` · ${usuario.aula}` : ''}`
+          : 'Registros con fecha, hora de entrada y salida'}
       />
       <div className="px-4 sm:px-8 pb-10 max-w-[1280px] space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <FilterTabs tabs={['Hoy', 'Esta semana', 'Este mes', 'Bimestre']} active={tab} onChange={setTab} />
           <div className="flex gap-2">
             <Button variant="ghost">Todos los grados <ChevronDown size={13} /></Button>
-            <Button variant="ghost"><Download size={14} /> Exportar</Button>
+            <Button variant="ghost" onClick={() => exportarAsistencia().catch(e => alert(e.message))}><Download size={14} /> Exportar</Button>
           </div>
         </div>
         <Table head={['Alumno', 'Grado', 'Fecha', 'Entrada', 'Salida', 'Estado']}>

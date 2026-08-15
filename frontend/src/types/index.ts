@@ -1,4 +1,4 @@
-export type Rol = 'direccion' | 'admin' | 'profesor' | 'alumno' | 'apoderado';
+export type Rol = 'superadmin' | 'direccion' | 'admin' | 'profesor' | 'alumno' | 'apoderado';
 
 export type EstadoAsistencia = 'puntual' | 'tardanza' | 'ausente' | 'justificado';
 
@@ -32,6 +32,21 @@ export interface Alumno {
   salidaHoy: string | null;
   estadoHoy: EstadoAsistencia;
   fechaNacimiento: string; // ISO
+  /** Datos que llegan del backend (no existen en el modo demo) */
+  dni?: string | null;
+  aulaId?: number | null;
+  estado?: string;
+  fotoUrl?: string | null;
+}
+
+export interface Aula {
+  id: number;
+  nivel: string;
+  grado: string;
+  seccion: string;
+  anioEscolar: number;
+  etiqueta: string;
+  totalAlumnos: number;
 }
 
 export interface LecturaRfid {
@@ -167,4 +182,141 @@ export interface CursoGratuito {
   descripcion: string;
   inscritos: number;
   categorias: CategoriaCurso[];
+}
+
+/* ── Entidades que llegan del backend ─────────────────────────────── */
+export interface DocenteApi {
+  id: number;
+  usuarioId: number;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  dni: string | null;
+  telefono: string | null;
+  especialidad: string | null;
+  estado: string;
+  estadoCuenta: string;
+  codigoActivacion: string | null;
+  aulas: { id: number; etiqueta: string; esTutor: boolean }[];
+}
+
+export interface ApoderadoApi {
+  id: number;
+  nombres: string;
+  apellidos: string;
+  dni: string;
+  telefono: string | null;
+  correo: string | null;
+  estadoCuenta: string;
+  codigoActivacion: string | null;
+  hijos: { id: number; codigo: string; nombre: string; aula: string; parentesco: string }[];
+}
+
+export interface ColegioApi {
+  id: number;
+  nombre: string;
+  codigoModular: string | null;
+  ruc: string | null;
+  colorMarca: string;
+  activo: boolean;
+  alumnos: number;
+  docentes: number;
+  apoderados: number;
+  usuariosActivos: number;
+  creadoEn: string;
+}
+
+export interface SetupEstado {
+  colegioNombre: string;
+  tieneLogo: boolean;
+  aulas: number;
+  docentes: number;
+  alumnos: number;
+  puntosAcceso: number;
+  completo: boolean;
+  porcentaje: number;
+  siguientePaso: string;
+}
+
+export interface FilaImportacion {
+  numeroFila: number;
+  nombresAlumno: string;
+  apellidosAlumno: string;
+  dniAlumno: string;
+  aula: string;
+  nombresApoderado: string;
+  apellidosApoderado: string;
+  dniApoderado: string;
+  telefonoApoderado: string;
+  correoApoderado: string;
+  tarjetaRfid: string;
+  valida: boolean;
+  errores: string[];
+}
+
+export interface Importacion {
+  totalFilas: number;
+  validas: number;
+  conError: number;
+  filas: FilaImportacion[];
+}
+
+export interface MatriculaResultado {
+  alumnoId: number;
+  codigoAlumno: string;
+  nombreAlumno: string;
+  aula: string;
+  tarjetaRfid: string | null;
+  apoderadoId: number;
+  nombreApoderado: string;
+  codigoActivacionApoderado: string | null;
+  codigoActivacionAlumno: string | null;
+}
+
+/* ── Módulos conectados al backend ────────────────────────────────── */
+export interface LecturaVivo {
+  id: number; alumnoId: number; codigoAlumno: string; nombre: string;
+  grado: string; tarjeta: string; metodo: string; tipo: string;
+  hora: string; estado: string; puntoAcceso: string; fotoUrl: string | null;
+}
+
+export interface NotificacionApi {
+  id: number; tipo: string; titulo: string; cuerpo: string;
+  cuando: string; leida: boolean;
+}
+
+export interface ComunicadoApi {
+  id: number; titulo: string; cuerpo: string; autor: string;
+  dirigidoA: string; aulaId: number | null; aula: string | null;
+  publicadoEn: string | null; publicado: boolean;
+  lecturas: number; destinatarios: number; leidoPorMi: boolean;
+}
+
+export interface ConductaApi {
+  id: number; alumnoId: number; alumno: string; codigoAlumno: string;
+  aula: string; tipo: string; categoria: string; descripcion: string;
+  fecha: string; registradoPor: string;
+}
+
+export interface NotaApi { cursoId: number; curso: string; abreviatura: string; calificacion: number; comentario: string | null }
+
+export interface LibretaApi {
+  id: number; alumnoId: number; codigoAlumno: string; alumno: string; aula: string;
+  periodo: string; anioEscolar: number; promedio: number | null;
+  observacion: string | null; publicada: boolean; publicadaEn: string | null;
+  notas: NotaApi[];
+  tieneArchivo: boolean; archivoUuid: string | null;
+}
+
+export interface CursoApi { id: number; nombre: string; abreviatura: string }
+
+export interface UsuarioAdminApi {
+  id: number; nombres: string; apellidos: string; correo: string;
+  rol: string; estado: string; dni: string | null; telefono: string | null;
+  ultimoAcceso: string | null; codigoActivacion: string | null;
+}
+
+export interface PuntoAccesoApi {
+  id: number; nombre: string; activo: boolean; enLinea: boolean;
+  ultimoLatido: string | null; apiKeyNueva: string | null;
 }

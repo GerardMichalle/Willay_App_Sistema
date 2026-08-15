@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import {
-  Users, Clock, UserX, Presentation, ChevronDown, ChevronRight, Bell,
+  Users, Clock, UserX, Presentation, ChevronRight, Bell, Rocket,
   CalendarDays, Megaphone, Cake, HeartHandshake,
 } from 'lucide-react';
 import Topbar from '../components/Topbar';
 import GateTicker from '../components/GateTicker';
 import { StatCard, PanelHead, Avatar, Mono, Pill, cn } from '../components/ui';
-import { getStatsHoy, getAsistenciaSemana, getEventos, getComunicados, getActividad, getAlumnos } from '../services/api';
+import { getStatsHoy, getEventos, getComunicados, getActividad, getAlumnos, getSetupEstado,
+  type DashboardStats } from '../services/api';
+import { Link } from 'react-router-dom';
+import type { SetupEstado } from '../types';
 import { useAuth } from '../context/AuthContext';
 import type { Evento, Comunicado, Actividad, Alumno } from '../types';
 
@@ -24,32 +27,85 @@ function fechaCorta(iso: string) {
 
 export default function Dashboard() {
   const { usuario } = useAuth();
-  const [stats, setStats] = useState<Awaited<ReturnType<typeof getStatsHoy>> | null>(null);
-  const [semana, setSemana] = useState<Awaited<ReturnType<typeof getAsistenciaSemana>>>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [errorStats, setErrorStats] = useState<string | null>(null);
+  const [setup, setSetup] = useState<SetupEstado | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [comunicados, setComunicados] = useState<Comunicado[]>([]);
   const [actividad, setActividad] = useState<Actividad[]>([]);
   const [cumples, setCumples] = useState<Alumno[]>([]);
 
   useEffect(() => {
-    getStatsHoy().then(setStats);
-    getAsistenciaSemana().then(setSemana);
+    getStatsHoy()
+      .then(setStats)
+      .catch(e => setErrorStats(e instanceof Error ? e.message : 'No se pudieron cargar los indicadores'));
+    getSetupEstado().then(setSetup).catch(() => setSetup(null));
     getEventos().then(setEventos);
     getComunicados().then(c => setComunicados(c.slice(0, 3)));
     getActividad().then(setActividad);
-    getAlumnos().then(al => {
-      const hoy = new Date();
-      const md = `${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-      setCumples(al.filter(a => a.fechaNacimiento.slice(5) === md));
-    });
+    getAlumnos()
+      .then(al => {
+        const hoy = new Date();
+        const md = `${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+        setCumples(al.filter(a => a.fechaNacimiento && a.fechaNacimiento.slice(5) === md));
+      })
+      .catch(() => setCumples([]));
   }, []);
 
   const saludo = new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const hoyIso = new Date().toISOString().slice(0, 10);
+  const mejorDia = (stats?.semana ?? []).reduce<{ diaCorto: string; entradas: number } | null>(
+    (mejor, d) => (d.entradas > 0 && (!mejor || d.entradas > mejor.entradas) ? d : mejor), null);
+  const porcentajeFamilias = stats && stats.apoderadosTotal > 0
+    ? ((stats.apoderadosConCuenta / stats.apoderadosTotal) * 100).toFixed(1)
+    : '0';
+  const rangoSemana = stats?.semana?.length
+    ? `${stats.semana[0].fecha.slice(8)}/${stats.semana[0].fecha.slice(5, 7)} – ${stats.semana[6].fecha.slice(8)}/${stats.semana[6].fecha.slice(5, 7)}`
+    : '';
 
   return (
     <>
       <Topbar title={`${saludo}, ${usuario?.nombre.split(' ')[0]}`} />
       <div className="px-4 sm:px-8 pb-10 space-y-4 max-w-[1280px]">
+
+        {errorStats && (
+          <div className="card p-4 border-bad/30 bg-bad-soft/40">
+            <p className="text-[12.5px] text-bad font-medium">{errorStats}</p>
+          </div>
+        )}
+
+        {/* Asistente de puesta en marcha: solo mientras falte configurar algo */}
+        {setup && !setup.completo && (
+          <div className="card p-6 border-brand-soft bg-brand-faint">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1 min-w-[260px]">
+                <div className="flex items-center gap-2">
+                  <Rocket size={16} className="text-brand" />
+                  <p className="text-[14px] font-bold tracking-tight">Configuración inicial de {setup.colegioNombre}</p>
+                </div>
+                <p className="text-[12.5px] text-ink-2 mt-1.5">
+                  Siguiente paso: <b className="font-semibold text-ink">{setup.siguientePaso}</b>
+                </p>
+                <div className="mt-3 h-2 rounded-full bg-paper overflow-hidden max-w-[420px]">
+                  <div className="h-full bg-brand rounded-full transition-[width] duration-700"
+                    style={{ width: `${setup.porcentaje}%` }} />
+                </div>
+                <p className="label-mono mt-1.5">{setup.porcentaje}% completado</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/aulas" className="rounded-[10px] border border-line bg-paper px-3.5 py-2 text-[12.5px] font-semibold text-ink-2 hover:text-ink transition-colors">
+                  {setup.aulas} aulas
+                </Link>
+                <Link to="/matriculas" className="rounded-[10px] border border-line bg-paper px-3.5 py-2 text-[12.5px] font-semibold text-ink-2 hover:text-ink transition-colors">
+                  {setup.alumnos} alumnos
+                </Link>
+                <Link to="/docentes" className="rounded-[10px] border border-line bg-paper px-3.5 py-2 text-[12.5px] font-semibold text-ink-2 hover:text-ink transition-colors">
+                  {setup.docentes} docentes
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <GateTicker />
 
@@ -59,22 +115,24 @@ export default function Dashboard() {
             icon={<Users size={19} strokeWidth={1.7} />}
             label="Presentes hoy"
             value={String(stats?.presentes ?? '—')}
-            denom={String(stats?.total ?? '')}
-            note={stats ? `${((stats.presentes / stats.total) * 100).toFixed(1)}% de asistencia` : ''}
+            denom={String(stats?.totalAlumnos ?? '')}
+            note={stats && stats.totalAlumnos > 0
+              ? `${((stats.presentes / stats.totalAlumnos) * 100).toFixed(1)}% de asistencia`
+              : 'Sin alumnos matriculados'}
             noteTone="ok"
           />
           <StatCard
             icon={<UserX size={19} strokeWidth={1.7} />}
             label="Ausentes"
             value={String(stats?.ausentes ?? '—')}
-            note="3 con inasistencia reiterada"
+            note={stats?.ausentes ? 'Registrados hoy' : 'Ninguno hoy'}
             noteTone="bad"
           />
           <StatCard
             icon={<Clock size={19} strokeWidth={1.7} />}
             label="Tardanzas"
             value={String(stats?.tardanzas ?? '—')}
-            note="12% menos que ayer"
+            note={stats?.tardanzas ? 'Ingresaron fuera de hora' : 'Ninguna hoy'}
             noteTone="warn"
           />
           <StatCard
@@ -82,7 +140,7 @@ export default function Dashboard() {
             label="Docentes activos"
             value={String(stats?.docentesActivos ?? '—')}
             denom={String(stats?.docentesTotal ?? '')}
-            note="2 con licencia"
+            note={stats ? `${stats.docentesTotal - stats.docentesActivos} sin actividad` : ''}
             noteTone="neutral"
           />
         </div>
@@ -93,26 +151,29 @@ export default function Dashboard() {
             <PanelHead
               title="Asistencia de la semana"
               sub="Entradas registradas por RFID"
-              right={
-                <button className="flex items-center gap-1.5 rounded-[10px] border border-line px-3 py-1.5 text-[12px] font-medium text-ink-2 hover:border-line-2 transition-colors cursor-pointer">
-                  22 – 30 Jul. 2026 <ChevronDown size={13} />
-                </button>
-              }
+              right={<span className="label-mono">{rangoSemana}</span>}
             />
             <div className="grid grid-cols-7 mt-6">
-              {semana.map((d, i) => (
-                <div key={d.dia} className={cn('text-center py-2', i > 0 && 'border-l border-line')}>
-                  <div className="label-mono">{d.dia}</div>
-                  <div className={cn('mt-2 text-[24px] font-bold tracking-tight', d.entradas === null && 'text-ink-3 font-medium')}>
-                    {d.entradas ?? '—'}
+              {(stats?.semana ?? []).map((d, i) => {
+                const futuro = d.fecha > hoyIso;
+                return (
+                  <div key={d.fecha} className={cn('text-center py-2', i > 0 && 'border-l border-line')}>
+                    <div className="label-mono">{d.diaCorto}</div>
+                    <div className={cn('mt-2 text-[24px] font-bold tracking-tight', futuro && 'text-ink-3 font-medium')}>
+                      {futuro ? '—' : d.entradas}
+                    </div>
+                    <div className="text-[10.5px] text-ink-3 mt-0.5">Entradas</div>
                   </div>
-                  <div className="text-[10.5px] text-ink-3 mt-0.5">Entradas</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mt-6 pt-4 border-t border-line flex items-center justify-between">
-              <span className="text-[12px] text-ink-3">Mejor día: <b className="text-ink font-semibold">Jueves (518)</b></span>
-              <Pill tone="ok">▲ 2.1% vs. semana pasada</Pill>
+              <span className="text-[12px] text-ink-3">
+                {mejorDia
+                  ? <>Mejor día: <b className="text-ink font-semibold">{mejorDia.diaCorto} ({mejorDia.entradas})</b></>
+                  : 'Aún no hay entradas registradas esta semana'}
+              </span>
+              {stats && <Pill tone="ok">{stats.comunicadosPublicados} comunicados publicados</Pill>}
             </div>
           </div>
 
@@ -185,18 +246,22 @@ export default function Dashboard() {
           <div className="card p-6">
             <PanelHead title="Familias conectadas" sub="Apoderados con cuenta web activa" right={<HeartHandshake size={16} className="text-ink-3" />} />
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[30px] font-bold tracking-tight">402</span>
-              <span className="text-[14px] text-ink-3 font-medium">/486</span>
+              <span className="text-[30px] font-bold tracking-tight">{stats?.apoderadosConCuenta ?? '—'}</span>
+              <span className="text-[14px] text-ink-3 font-medium">/{stats?.apoderadosTotal ?? 0}</span>
             </div>
             <div className="mt-3 h-2 rounded-full bg-canvas overflow-hidden">
-              <div className="h-full bg-ok rounded-full" style={{ width: '82.7%' }} />
+              <div className="h-full bg-ok rounded-full transition-[width] duration-700" style={{ width: `${porcentajeFamilias}%` }} />
             </div>
             <p className="mt-3 text-[12px] text-ink-2">
-              <b className="font-semibold">82.7%</b> de los apoderados ya recibe avisos de entrada y salida.
+              {stats && stats.apoderadosTotal > 0
+                ? <><b className="font-semibold">{porcentajeFamilias}%</b> de los apoderados ya recibe avisos de entrada y salida.</>
+                : 'Aún no hay apoderados registrados.'}
             </p>
-            <button className="mt-4 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors cursor-pointer">
-              Invitar a los 84 restantes →
-            </button>
+            {stats && stats.apoderadosTotal > stats.apoderadosConCuenta && (
+              <p className="mt-4 text-[12px] text-ink-3">
+                {stats.apoderadosTotal - stats.apoderadosConCuenta} apoderados sin activar su cuenta.
+              </p>
+            )}
           </div>
         </div>
 

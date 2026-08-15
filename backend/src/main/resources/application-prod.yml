@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────
+# PRODUCCIÓN — instalación real en un colegio.
+# La base arranca VACÍA: solo estructura, sin ningún dato de ejemplo.
+# Todos los secretos llegan por variables de entorno; ninguno vive aquí.
+# ─────────────────────────────────────────────────────────────────────
+spring:
+  flyway:
+    locations: classpath:db/migration     # ← sin db/seed: cero datos demo
+  jpa:
+    show-sql: false
+
+server:
+  # Detrás de un proxy (Caddy/Nginx) que termina TLS
+  forward-headers-strategy: framework
+
+springdoc:
+  # La documentación pública se apaga en producción
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+logging:
+  level:
+    com.willay: INFO
+    org.springframework: WARN
+  file:
+    name: ${LOG_FILE:/var/log/willay/willay.log}
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 30           # 30 días de logs rotados

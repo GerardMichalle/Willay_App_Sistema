@@ -1,0 +1,38 @@
+# Willay · entorno de DESARROLLO local
+# Un solo comando:  docker compose up --build
+# Incluye datos de demostración (perfil dev).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: willay-db
+    environment:
+      POSTGRES_DB: willay
+      POSTGRES_USER: willay
+      POSTGRES_PASSWORD: willay-local
+    ports:
+      - "5432:5432"
+    volumes:
+      - willay_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U willay -d willay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: willay-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://db:5432/willay
+      DB_USER: willay
+      DB_PASSWORD: willay-local
+      CORS_ORIGENES: http://localhost:5173
+    ports:
+      - "8080:8080"
+
+volumes:
+  willay_pgdata:

@@ -1,28 +1,76 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, CalendarDays, Megaphone, Flame, BookOpen, IdCard } from 'lucide-react';
+import {
+  ArrowRight, Sparkles, Megaphone, Flame, BookOpen, IdCard, Award, Loader2, CheckCircle2,
+} from 'lucide-react';
 import Topbar from '../../components/Topbar';
-import { PanelHead, Mono, Pill } from '../../components/ui';
+import { PanelHead, Mono, Pill, cn } from '../../components/ui';
+import { getAlumnos, getLibretas, getConductaApi, getComunicadosApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import type { Alumno, LibretaApi, ConductaApi, ComunicadoApi } from '../../types';
 
 export default function InicioAlumno() {
+  const { usuario } = useAuth();
+  const [yo, setYo] = useState<Alumno | null>(null);
+  const [libretas, setLibretas] = useState<LibretaApi[]>([]);
+  const [conducta, setConducta] = useState<ConductaApi[]>([]);
+  const [comunicados, setComunicados] = useState<ComunicadoApi[]>([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    Promise.allSettled([
+      getAlumnos().then(l => setYo(l[0] ?? null)),
+      getLibretas().then(setLibretas),
+      getConductaApi().then(setConducta),
+      getComunicadosApi().then(c => setComunicados(c.filter(x => x.publicado).slice(0, 3))),
+    ]).finally(() => setCargando(false));
+  }, []);
+
+  const primerNombre = usuario?.nombre.split(' ')[0] ?? '';
+  const ultimaLibreta = libretas[0];
+  const meritos = conducta.filter(c => c.tipo === 'MERITO').length;
+  const ultimoMerito = conducta.find(c => c.tipo === 'MERITO');
+
+  if (cargando) {
+    return (
+      <>
+        <Topbar title={`¡Hola, ${primerNombre}!`} subtitle="Cargando tu espacio…" />
+        <div className="px-4 sm:px-8 pb-10">
+          <div className="card p-12 grid place-items-center text-ink-3"><Loader2 size={22} className="animate-spin" /></div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <Topbar title="¡Hola, Valeria!" subtitle="Este es tu espacio en Willay" />
+      <Topbar title={`¡Hola, ${primerNombre}!`} subtitle="Este es tu espacio en Willay" />
       <div className="px-4 sm:px-8 pb-10 max-w-[1100px] space-y-4">
 
-        {/* Hero joven */}
+        {/* Estado de hoy */}
         <div className="card overflow-hidden">
           <div className="bg-gradient-to-r from-brand to-[#F2683C] text-white px-7 py-6 relative">
-            <div className="absolute inset-0 opacity-[.12]" style={{ backgroundImage: 'radial-gradient(circle at 15% 40%, #fff 1.5px, transparent 1.5px)', backgroundSize: '20px 20px' }} />
+            <div className="absolute inset-0 opacity-[.12]"
+              style={{ backgroundImage: 'radial-gradient(circle at 15% 40%, #fff 1.5px, transparent 1.5px)', backgroundSize: '20px 20px' }} />
             <div className="relative flex flex-wrap items-center gap-5 justify-between">
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/70">Racha de asistencia</div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/70">Tu ingreso de hoy</div>
                 <div className="flex items-center gap-2 mt-1">
-                  <Flame size={22} />
-                  <span className="text-[30px] font-bold leading-none">12 días seguidos</span>
+                  {yo?.entradaHoy ? <CheckCircle2 size={22} /> : <Flame size={22} />}
+                  <span className="text-[30px] font-bold leading-none">
+                    {yo?.entradaHoy ?? 'Sin registro'}
+                  </span>
                 </div>
-                <p className="text-[12.5px] text-white/85 mt-2">¡Sigue así! Mañana llegas a 13 y superas tu récord del bimestre.</p>
+                <p className="text-[12.5px] text-white/85 mt-2">
+                  {yo?.entradaHoy
+                    ? yo.estadoHoy === 'tardanza'
+                      ? 'Llegaste después de la hora de tolerancia.'
+                      : '¡Llegaste puntual! Sigue así.'
+                    : 'Pasa tu tarjeta por el lector al entrar al colegio.'}
+                </p>
               </div>
-              <Link to="/mi-perfil" className="flex items-center gap-2 bg-white text-brand rounded-[10px] px-4 py-2.5 text-[13px] font-semibold hover:bg-brand-faint transition-colors">
+              <Link to="/mi-perfil"
+                className="flex items-center gap-2 bg-white text-brand rounded-[10px] px-4 py-2.5 text-[13px] font-semibold hover:bg-brand-faint transition-colors">
                 <IdCard size={15} /> Ver mi tarjeta y QR
               </Link>
             </div>
@@ -32,63 +80,69 @@ export default function InicioAlumno() {
         <div className="grid xl:grid-cols-3 gap-4">
           <div className="card p-6">
             <PanelHead title="Mis notas" right={<BookOpen size={16} className="text-ink-3" />} />
+            {ultimaLibreta ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className={cn('text-[30px] font-bold tracking-tight',
+                    (ultimaLibreta.promedio ?? 0) >= 14 ? 'text-ok' : 'text-warn')}>
+                    {ultimaLibreta.promedio?.toFixed(1) ?? '—'}
+                  </span>
+                  <span className="text-[13px] text-ink-3">promedio</span>
+                </div>
+                <p className="text-[12px] text-ink-2 mt-2">{ultimaLibreta.periodo}</p>
+                <Link to="/libreta" className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors">
+                  Ver todas mis notas <ArrowRight size={13} />
+                </Link>
+              </>
+            ) : (
+              <p className="text-[12.5px] text-ink-3">Todavía no hay notas publicadas.</p>
+            )}
+          </div>
+
+          <div className="card p-6">
+            <PanelHead title="Mis méritos" right={<Award size={16} className="text-ink-3" />} />
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[30px] font-bold tracking-tight text-ok">18.2</span>
-              <span className="text-[13px] text-ink-3">promedio general</span>
+              <span className="text-[30px] font-bold tracking-tight text-info">{meritos}</span>
+              <span className="text-[13px] text-ink-3">{meritos === 1 ? 'reconocimiento' : 'reconocimientos'}</span>
             </div>
-            <p className="text-[12px] text-ink-2 mt-2">Tu mejor curso: <b className="font-semibold">Ed. Física (20)</b></p>
-            <Link to="/libreta" className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors">
-              Ver todas mis notas <ArrowRight size={13} />
-            </Link>
+            {ultimoMerito ? (
+              <p className="text-[12px] text-ink-2 mt-2">{ultimoMerito.categoria}: {ultimoMerito.descripcion}</p>
+            ) : (
+              <p className="text-[12px] text-ink-3 mt-2">Aún no tienes méritos registrados.</p>
+            )}
           </div>
 
           <div className="card p-6">
             <PanelHead title="Cursos gratuitos" right={<Sparkles size={16} className="text-ink-3" />} />
             <p className="text-[13px] font-semibold">Economía y Finanzas</p>
             <p className="text-[12px] text-ink-2 mt-1">Aprende a ahorrar y hacer crecer tus propinas.</p>
-            <div className="mt-3 h-1.5 rounded-full bg-canvas overflow-hidden">
-              <div className="h-full bg-brand rounded-full" style={{ width: '35%' }} />
-            </div>
-            <p className="text-[11px] text-ink-3 mt-1.5">3 de 7 recursos completados</p>
-            <Link to="/cursos" className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors">
-              Continuar <ArrowRight size={13} />
+            <Link to="/cursos" className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand hover:text-brand-strong transition-colors">
+              Explorar <ArrowRight size={13} />
             </Link>
-          </div>
-
-          <div className="card p-6">
-            <PanelHead title="Próximo evento" right={<CalendarDays size={16} className="text-ink-3" />} />
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 text-center rounded-[10px] border border-line py-2 bg-paper">
-                <div className="text-[18px] font-bold leading-none">31</div>
-                <div className="label-mono !text-[9px] mt-0.5">JUL</div>
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold">Actuación por Fiestas Patrias</p>
-                <Mono className="!text-[10.5px]">09:00 · Patio central</Mono>
-              </div>
-            </div>
-            <Pill tone="brand">Salida especial: 12:30 p. m.</Pill>
           </div>
         </div>
 
         <div className="card p-6">
           <PanelHead title="Comunicados para ti" right={<Megaphone size={16} className="text-ink-3" />} />
-          <div className="space-y-3">
-            {[
-              { t: 'Horario especial por Fiestas Patrias', m: 'Dirección · 29 JUL' },
-              { t: 'Lista de útiles · II Semestre', m: 'Coordinación académica · 25 JUL' },
-            ].map(c => (
-              <div key={c.t} className="flex items-center justify-between gap-3 group cursor-pointer">
-                <div>
-                  <p className="text-[13px] font-semibold group-hover:text-brand transition-colors">{c.t}</p>
-                  <Mono className="!text-[10.5px]">{c.m}</Mono>
-                </div>
-                <ArrowRight size={14} className="text-ink-3 group-hover:text-brand group-hover:translate-x-0.5 transition-all" />
-              </div>
-            ))}
-          </div>
+          {comunicados.length === 0 ? (
+            <p className="text-[12.5px] text-ink-3">No hay comunicados publicados.</p>
+          ) : (
+            <div className="space-y-3">
+              {comunicados.map(c => (
+                <Link key={c.id} to="/comunicados" className="flex items-center justify-between gap-3 group">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold truncate group-hover:text-brand transition-colors">{c.titulo}</p>
+                    <Mono className="!text-[10.5px]">{c.autor} · {c.publicadoEn}</Mono>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!c.leidoPorMi && <Pill tone="brand">Nuevo</Pill>}
+                    <ArrowRight size={14} className="text-ink-3 group-hover:text-brand group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-
       </div>
     </>
   );

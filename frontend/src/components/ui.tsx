@@ -59,8 +59,9 @@ export function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone
 }
 
 /* ── Botones ──────────────────────────────────────────────────────── */
-export function Button({ children, variant = 'solid', onClick, className }: {
-  children: ReactNode; variant?: 'solid' | 'ghost' | 'soft'; onClick?: () => void; className?: string;
+export function Button({ children, variant = 'solid', onClick, className, disabled, title }: {
+  children: ReactNode; variant?: 'solid' | 'ghost' | 'soft'; onClick?: () => void;
+  className?: string; disabled?: boolean; title?: string;
 }) {
   const v = {
     solid: 'bg-brand text-white hover:bg-brand-strong shadow-sm',
@@ -70,7 +71,12 @@ export function Button({ children, variant = 'solid', onClick, className }: {
   return (
     <button
       onClick={onClick}
-      className={cn('inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all active:scale-[.98] cursor-pointer', v, className)}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all active:scale-[.98] cursor-pointer',
+        'disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100',
+        v, className)}
     >
       {children}
     </button>

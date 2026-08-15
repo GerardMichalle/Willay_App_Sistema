@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────────────────────────────
+# Configuración BASE — común a todos los entornos.
+# Lo específico de cada entorno vive en application-{perfil}.yml
+# Perfil por defecto: dev (para que un clon del repo arranque sin flags)
+# ─────────────────────────────────────────────────────────────────────
+spring:
+  application:
+    name: willay-backend
+
+  profiles:
+    default: dev
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/willay}
+    username: ${DB_USER:willay}
+    password: ${DB_PASSWORD:willay-local}
+    hikari:
+      pool-name: willay-pool
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # el esquema lo gobierna Flyway; JPA solo valida
+    open-in-view: false         # evita consultas perezosas fuera de la transacción
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: America/Lima
+          batch_size: 50
+
+  flyway:
+    enabled: true
+    # locations se define por perfil: prod NO carga db/seed
+    baseline-on-migrate: false
+
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX:25MB}
+      max-request-size: ${UPLOAD_MAX:25MB}
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never      # no filtrar detalles internos en respuestas
+    include-stacktrace: never
+  compression:
+    enabled: true
+
+willay:
+  jwt:
+    secreto: ${JWT_SECRET:}
+    duracion-acceso-min: ${JWT_ACCESS_MIN:30}
+    duracion-refresh-dias: ${JWT_REFRESH_DIAS:14}
+  cors:
+    origenes: ${CORS_ORIGENES:http://localhost:5173}
+  # Cuenta del proveedor creada al primer arranque si la base está vacía
+  bootstrap:
+    habilitado: ${BOOTSTRAP_ENABLED:true}
+    correo: ${BOOTSTRAP_EMAIL:}
+    password: ${BOOTSTRAP_PASSWORD:}
+    nombres: ${BOOTSTRAP_NOMBRES:Soporte}
+    apellidos: ${BOOTSTRAP_APELLIDOS:Willay}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

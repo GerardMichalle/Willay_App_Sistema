@@ -1,0 +1,19 @@
+# ── DESARROLLO local: incluye datos de demostración ──
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed   # ← carga la semilla demo
+  jpa:
+    show-sql: false
+
+willay:
+  jwt:
+    # Secreto fijo SOLO para desarrollo. Nunca usar en producción.
+    secreto: ${JWT_SECRET:desarrollo-local-willay-secreto-de-al-menos-32-caracteres!}
+  bootstrap:
+    correo: ${BOOTSTRAP_EMAIL:soporte@willay.pe}
+    password: ${BOOTSTRAP_PASSWORD:demo1234}
+
+logging:
+  level:
+    com.willay: DEBUG
+    org.springframework.security: INFO

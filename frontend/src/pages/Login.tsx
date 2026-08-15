@@ -16,18 +16,27 @@ const ROLES: { id: Rol; label: string; icon: React.ReactNode; correo: string }[]
 ];
 
 export default function Login() {
-  const [rol, setRol] = useState<Rol>('admin');
+  const [rol, setRol] = useState<Rol>('admin');   // solo resalta la cuenta demo elegida
   const [correo, setCorreo] = useState('patricia.soto@sanmartin.edu.pe');
-  const [pass, setPass] = useState('demo1234');
+  const [pass, setPass] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { iniciar } = useAuth();
   const nav = useNavigate();
 
   async function entrar() {
+    setError(null);
     setCargando(true);
-    const u = await login(correo, pass, rol);  // TODO Spring Boot: manejar credenciales inválidas
-    iniciar(u);
-    nav('/');
+    try {
+      // Autenticación real: el backend valida la contraseña y decide el rol.
+      const u = await login(correo, pass);
+      iniciar(u);
+      nav('/');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo iniciar sesión');
+    } finally {
+      setCargando(false);
+    }
   }
 
   return (
@@ -54,9 +63,9 @@ export default function Login() {
 
         <div className="card p-7 shadow-[0_10px_40px_rgba(0,0,0,.06)]">
           <h1 className="text-[18px] font-bold tracking-tight">Bienvenido de nuevo</h1>
-          <p className="text-[12.5px] text-ink-3 mt-1 mb-5">Ingresa con la cuenta asignada por tu institución</p>
+          <p className="text-[12.5px] text-ink-3 mt-1 mb-5">Ingresa con la cuenta asignada por tu institución.</p>
 
-          <div className="label-mono mb-2">Ingresar como</div>
+          <div className="label-mono mb-2">Cuentas de demostración</div>
           <div className="grid grid-cols-2 gap-2 mb-5">
             {ROLES.map(r => (
               <button
@@ -92,9 +101,15 @@ export default function Login() {
               onChange={e => setPass(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && entrar()}
               className="mt-1.5 w-full rounded-[10px] border border-line bg-paper px-3.5 py-2.5 text-[13px] outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
-              placeholder="••••••••"
+              placeholder="demo1234"
             />
           </label>
+
+          {error && (
+            <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">
+              {error}
+            </p>
+          )}
 
           <button
             onClick={entrar}
