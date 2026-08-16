@@ -22,8 +22,9 @@ public class ActivacionController {
 
     @PostMapping("/verificar")
     @Operation(summary = "Paso 1: valida código + DNI y revela la identidad y el vínculo")
-    public IdentidadActivacionDto verificar(@Valid @RequestBody VerificarActivacionRequest peticion) {
-        return activacionService.verificar(peticion);
+    public IdentidadActivacionDto verificar(@Valid @RequestBody VerificarActivacionRequest peticion,
+                                             HttpServletRequest req) {
+        return activacionService.verificar(peticion, req.getRemoteAddr());
     }
 
     @PostMapping("/completar")

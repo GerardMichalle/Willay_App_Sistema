@@ -10,6 +10,7 @@ import com.willay.exception.BusinessException;
 import com.willay.mapper.UsuarioMapper;
 import com.willay.repository.RefreshTokenRepository;
 import com.willay.repository.UsuarioRepository;
+import com.willay.security.IntentosAccesoService;
 import com.willay.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,16 +33,22 @@ public class AuthService {
     private final JwtService jwtService;
     private final UsuarioMapper usuarioMapper;
     private final AuditoriaService auditoria;
+    private final IntentosAccesoService intentosAcceso;
 
     @Value("${willay.jwt.duracion-refresh-dias:14}")
     private long duracionRefreshDias;
 
     @Transactional
     public TokenResponse login(LoginRequest peticion, String ip) {
+        intentosAcceso.verificarNoBloqueado(peticion.correo());
+        intentosAcceso.verificarNoBloqueado(ip);
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(peticion.correo(), peticion.password()));
         } catch (BadCredentialsException e) {
+            intentosAcceso.registrarFallo(peticion.correo());
+            intentosAcceso.registrarFallo(ip);
             auditoria.registrar(AccionAuditoria.LOGIN_FALLIDO, null, null, peticion.correo(), ip);
             throw e;
         }
@@ -53,6 +60,9 @@ public class AuthService {
         String access = jwtService.emitir(
                 usuario.getId(), usuario.getCorreo(), usuario.getRol(), colegioId);
         RefreshToken refresh = crearRefresh(usuario);
+
+        intentosAcceso.registrarExito(peticion.correo());
+        intentosAcceso.registrarExito(ip);
 
         auditoria.registrar(AccionAuditoria.LOGIN_OK, colegioId, usuario.getId(), null, ip);
 

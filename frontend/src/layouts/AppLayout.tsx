@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import Sidebar, { LogoWillay } from '../components/Sidebar';
-import ThemeToggle from '../components/ThemeToggle';
-import { Avatar } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 
 export default function AppLayout() {
@@ -11,7 +9,7 @@ export default function AppLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
 
-  // Cierra el cajón al cambiar de ruta y bloquea el scroll del fondo mientras está abierto
+  // Cierra el cajón al cambiar de ruta y bloquea el scroll del fondo mientras está abierto siuuu
   useEffect(() => { setMenuAbierto(false); }, [ubicacion.pathname]);
   useEffect(() => {
     document.body.style.overflow = menuAbierto ? 'hidden' : '';
@@ -57,10 +55,7 @@ export default function AppLayout() {
             <LogoWillay size={22} />
             <span className="text-[17px] font-bold tracking-tight">Willay</span>
           </span>
-          <span className="flex items-center gap-2">
-            <ThemeToggle />
-            <Avatar nombre={usuario.nombre} size="sm" />
-          </span>
+          <span className="w-10" aria-hidden="true" />
         </div>
         <Outlet />
       </main>

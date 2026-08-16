@@ -8,12 +8,14 @@ import com.willay.dto.VerificarActivacionRequest;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.repository.*;
+import com.willay.security.IntentosAccesoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 /**
  * Flujo "Activar mi cuenta": el código nace en la matrícula, es de un solo
@@ -29,10 +31,11 @@ public class ActivacionService {
     private final AlumnoApoderadoRepository alumnoApoderadoRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoria;
+    private final IntentosAccesoService intentosAcceso;
 
     @Transactional(readOnly = true)
-    public IdentidadActivacionDto verificar(VerificarActivacionRequest peticion) {
-        CodigoActivacion codigo = buscarVigente(peticion.codigo(), peticion.dni());
+    public IdentidadActivacionDto verificar(VerificarActivacionRequest peticion, String ip) {
+        CodigoActivacion codigo = buscarVigente(peticion.codigo(), peticion.dni(), ip);
         Usuario usuario = codigo.getUsuario();
         return new IdentidadActivacionDto(
                 usuario.nombreCompleto(),
@@ -42,7 +45,7 @@ public class ActivacionService {
 
     @Transactional
     public IdentidadActivacionDto completar(CompletarActivacionRequest peticion, String ip) {
-        CodigoActivacion codigo = buscarVigente(peticion.codigo(), peticion.dni());
+        CodigoActivacion codigo = buscarVigente(peticion.codigo(), peticion.dni(), ip);
         Usuario usuario = codigo.getUsuario();
 
         usuario.setClaveHash(passwordEncoder.encode(peticion.password()));
@@ -57,11 +60,26 @@ public class ActivacionService {
                 usuario.nombreCompleto(), usuario.getRol().name(), describirVinculo(usuario));
     }
 
-    private CodigoActivacion buscarVigente(String codigo, String dni) {
-        return codigoRepository.findByCodigoAndDni(codigo, dni)
-                .filter(CodigoActivacion::vigente)
-                .orElseThrow(() -> new BusinessException(
-                        "Código o DNI incorrectos, o el código ya fue usado o expiró"));
+    /**
+     * Punto único de validación de código+DNI para verificar() y completar():
+     * ambos atacan el mismo recurso, así que comparten la misma clave de
+     * límite de intentos ("activacion:" + ip) — un fallo en cualquiera de
+     * los dos cuenta para el mismo bloqueo.
+     */
+    private CodigoActivacion buscarVigente(String codigo, String dni, String ip) {
+        String clave = "activacion:" + ip;
+        intentosAcceso.verificarNoBloqueado(clave);
+
+        Optional<CodigoActivacion> encontrado = codigoRepository.findByCodigoAndDni(codigo, dni)
+                .filter(CodigoActivacion::vigente);
+
+        if (encontrado.isEmpty()) {
+            intentosAcceso.registrarFallo(clave);
+            throw new BusinessException("Código o DNI incorrectos, o el código ya fue usado o expiró");
+        }
+
+        intentosAcceso.registrarExito(clave);
+        return encontrado.get();
     }
 
     /** "Apoderado de Valeria Quispe · 5° \"A\"" / "Estudiante de 5° \"A\"". */
