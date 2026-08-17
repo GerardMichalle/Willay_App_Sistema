@@ -34,6 +34,7 @@
   --animate-rise: rise .4s ease both;
   --animate-pop: popIn .45s cubic-bezier(.2,.9,.3,1.2) both;
   --animate-fade-slide: fadeSlide .4s cubic-bezier(.2,.9,.3,1) both;
+  --animate-fade-slide-out: fadeSlideOut .4s cubic-bezier(.2,.9,.3,1) both;
 
   @keyframes slideIn {
     from { transform: translateX(-12px); opacity: 0; }
@@ -51,6 +52,10 @@
   @keyframes fadeSlide {
     from { transform: translateX(16px); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes fadeSlideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-16px); opacity: 0; }
   }
 }
 

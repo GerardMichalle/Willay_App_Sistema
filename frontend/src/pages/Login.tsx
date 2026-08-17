@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Users, Pencil, BookOpen, GraduationCap, ArrowRight,
-  ShieldCheck, Loader2, Eye, EyeOff,
+  Verified, Loader2, Eye, EyeOff,
 } from 'lucide-react';
 import { login } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { LogoWillay } from '../components/Sidebar';
+import PanelMarca from '../components/PanelMarca';
 import { cn } from '../components/ui';
 import type { Rol } from '../types';
-import loginImg from '../../imglogin/loginimg.jpg';
 
 /** Solo existen en el entorno de desarrollo local (npm run dev). */
 const ROLES: { id: Rol; label: string; icon: React.ReactNode; correo: string }[] = [
@@ -18,12 +18,6 @@ const ROLES: { id: Rol; label: string; icon: React.ReactNode; correo: string }[]
   { id: 'profesor', label: 'Profesor', icon: <Pencil size={15} />, correo: 'c.mendoza@sanmartin.edu.pe' },
   { id: 'alumno', label: 'Estudiante', icon: <GraduationCap size={15} />, correo: 'valeria.quispe@sanmartin.edu.pe' },
   { id: 'apoderado', label: 'Padre de familia', icon: <BookOpen size={15} />, correo: 'rosa.rojas@gmail.com' },
-];
-
-/** Placeholders — se reemplazan por las cuentas reales de Willay más adelante. */
-const REDES = [
-  { label: 'Instagram', href: 'https://instagram.com/willayedu' },
-  { label: 'TikTok', href: 'https://tiktok.com/@willayedu' },
 ];
 
 /** import.meta.env.DEV es true solo con "npm run dev"; false en el build publicado. */
@@ -54,39 +48,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-canvas">
-      {/* Columna de marca — solo desktop */}
-      <div className="hidden lg:flex relative flex-col justify-between overflow-hidden">
-        <img src={loginImg} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" aria-hidden />
-
-        <div className="relative z-10 p-8">
-          <div className="inline-flex items-center gap-2.5 bg-paper/95 backdrop-blur rounded-full pl-3 pr-4 py-2 shadow-[0_10px_30px_rgba(0,0,0,.18)]">
-            <LogoWillay size={24} />
-            <span className="text-[16px] font-bold tracking-tight text-ink">Willay</span>
-          </div>
-        </div>
-
-        <div className="relative z-10 p-8">
-          <p className="text-white text-[26px] font-bold leading-snug tracking-tight max-w-[420px] [text-shadow:0_2px_20px_rgba(0,0,0,.5)]">
-            Que ningún padre se quede esperando una llamada que nunca llega
-          </p>
-
-          <div className="flex items-center gap-2.5 mt-7">
-            {REDES.map(r => (
-              <a
-                key={r.label}
-                href={r.href}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-white/30 text-white/90 text-[12px] font-medium px-4 py-2 transition-colors hover:bg-white/10 hover:border-white/50"
-              >
-                {r.label}
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-canvas select-none">
+      <PanelMarca />
 
       {/* Columna del formulario */}
       <div className="relative flex items-center justify-center px-4 py-10 overflow-hidden">
@@ -111,7 +74,7 @@ export default function Login() {
 
           <div className="card p-7 shadow-[0_10px_40px_rgba(0,0,0,.06)]">
             <h1 className="text-[18px] font-bold tracking-tight">Bienvenido de nuevo</h1>
-            <p className="text-[12.5px] text-ink-3 mt-1 mb-5">Ingresa con la cuenta asignada por tu institución.</p>
+            <p className="text-[12.5px] text-ink-3 mt-1 mb-5">Ingresa con la cuenta asignada por tu institución</p>
 
             {ES_DESARROLLO && (
               <>
@@ -202,7 +165,7 @@ export default function Login() {
           </div>
 
           <p className="flex items-center justify-center gap-1.5 label-mono mt-5">
-            <ShieldCheck size={12} /> Conexión segura · Datos cifrados
+            <Verified size={13} className="text-brand" /> Conexión segura
           </p>
         </div>
       </div>
