@@ -87,7 +87,8 @@ export default function Colegios() {
   const formValido =
     datos.nombre.trim() !== '' && datos.sedeNombre.trim() !== '' &&
     datos.adminNombres.trim() !== '' && datos.adminApellidos.trim() !== '' &&
-    /\S+@\S+\.\S+/.test(datos.adminCorreo) && datos.adminPasswordTemporal.length >= 8;
+    /\S+@\S+\.\S+/.test(datos.adminCorreo) && /^\d{8}$/.test(datos.adminDni ?? '') &&
+    datos.adminPasswordTemporal.length >= 8;
 
   return (
     <>
@@ -250,6 +251,11 @@ export default function Colegios() {
                 <input type="email" className={claseInput} value={datos.adminCorreo}
                   onChange={e => setDatos({ ...datos, adminCorreo: e.target.value })}
                   placeholder="direccion@santarosa.edu.pe" />
+              </Campo>
+              <Campo etiqueta="DNI del administrador" requerido>
+                <input className={`${claseInput} font-mono`} value={datos.adminDni ?? ''}
+                  onChange={e => setDatos({ ...datos, adminDni: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                  inputMode="numeric" placeholder="8 dígitos" />
               </Campo>
               <Campo etiqueta="Contraseña temporal" requerido>
                 <div className="flex gap-2">
