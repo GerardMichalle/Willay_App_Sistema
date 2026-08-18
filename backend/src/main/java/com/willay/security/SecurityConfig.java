@@ -34,6 +34,9 @@ public class SecurityConfig {
             .exceptionHandling(e -> e.authenticationEntryPoint(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> auth
+                // Cambiar la propia contraseña exige sesión real, a diferencia
+                // del resto de /api/auth/** (login/refresh son públicos por diseño).
+                .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()
                 // Públicos: login/refresh, activación de cuentas, docs y salud
                 .requestMatchers("/api/auth/**", "/api/activacion/**", "/api/asistencia/lectura").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()

@@ -2,6 +2,7 @@ package com.willay.service;
 
 import com.willay.audit.AccionAuditoria;
 import com.willay.audit.AuditoriaService;
+import com.willay.dto.CambiarPasswordRequest;
 import com.willay.dto.LoginRequest;
 import com.willay.dto.TokenResponse;
 import com.willay.entity.RefreshToken;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class AuthService {
     private final UsuarioMapper usuarioMapper;
     private final AuditoriaService auditoria;
     private final IntentosAccesoService intentosAcceso;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${willay.jwt.duracion-refresh-dias:14}")
     private long duracionRefreshDias;
@@ -93,6 +96,29 @@ public class AuthService {
     public void logout(Long usuarioId, String ip) {
         refreshTokenRepository.revocarTodosDelUsuario(usuarioId, OffsetDateTime.now());
         auditoria.registrar(AccionAuditoria.LOGOUT, null, usuarioId, null, ip);
+    }
+
+    /**
+     * Cambio de contraseña por el propio usuario, ya autenticado.
+     * Revoca los refresh tokens existentes: cualquier otra sesión activa
+     * tendrá que volver a loguearse con la contraseña nueva.
+     */
+    @Transactional
+    public void cambiarPassword(Long usuarioId, CambiarPasswordRequest peticion, String ip) {
+        if (peticion.passwordActual().equals(peticion.passwordNueva())) {
+            throw new BusinessException("La nueva contraseña debe ser distinta a la actual");
+        }
+
+        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow();
+        if (!passwordEncoder.matches(peticion.passwordActual(), usuario.getClaveHash())) {
+            throw new BusinessException("La contraseña actual no es correcta");
+        }
+
+        usuario.setClaveHash(passwordEncoder.encode(peticion.passwordNueva()));
+        refreshTokenRepository.revocarTodosDelUsuario(usuarioId, OffsetDateTime.now());
+
+        Long colegioId = usuario.getColegio() != null ? usuario.getColegio().getId() : null;
+        auditoria.registrar(AccionAuditoria.PASSWORD_CAMBIADA, colegioId, usuarioId, null, ip);
     }
 
     private RefreshToken crearRefresh(Usuario usuario) {

@@ -128,6 +128,11 @@ export async function logout(): Promise<void> {
   borrarSesion();
 }
 
+// PUT /api/auth/password — cambio de contraseña del usuario autenticado
+export async function cambiarPasswordPropia(passwordActual: string, passwordNueva: string): Promise<void> {
+  await httpMetodo<void>('PUT', '/api/auth/password', { passwordActual, passwordNueva });
+}
+
 // ── Activación de cuenta (flujo real de 2 pasos) ──
 export interface IdentidadActivacion { nombreCompleto: string; rol: string; vinculo: string }
 

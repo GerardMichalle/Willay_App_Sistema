@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, KeyRound } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import Notificaciones from './Notificaciones';
+import CambiarPasswordModal from './CambiarPasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
 
@@ -25,6 +26,9 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   const { usuario } = useAuth();
   const nav = useNavigate();
   const [busqueda, setBusqueda] = useState('');
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [passwordAbierto, setPasswordAbierto] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
 
   /** El buscador lleva al módulo donde ese término tiene sentido para el rol. */
   function buscar(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -35,6 +39,16 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
     nav(destino);
     setBusqueda('');
   }
+
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const alClic = (e: MouseEvent) => {
+      if (menu.current && !menu.current.contains(e.target as Node)) setMenuAbierto(false);
+    };
+    document.addEventListener('mousedown', alClic);
+    return () => document.removeEventListener('mousedown', alClic);
+  }, [menuAbierto]);
+
   return (
     <header className="flex items-center justify-between gap-4 px-4 sm:px-8 pt-5 sm:pt-6 pb-5">
       <div className="min-w-0">
@@ -54,8 +68,35 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
         </label>
         <ThemeToggle />
         <Notificaciones />
-        {usuario && <Avatar nombre={usuario.nombre} size="lg" />}
+        {usuario && (
+          <div className="relative" ref={menu}>
+            <button
+              onClick={() => setMenuAbierto(v => !v)}
+              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+              aria-label="Cuenta"
+            >
+              <Avatar nombre={usuario.nombre} size="lg" />
+            </button>
+
+            {menuAbierto && (
+              <div className="absolute right-0 top-13 z-50 w-[230px] rounded-[14px] border border-line bg-paper shadow-2xl animate-rise overflow-hidden">
+                <div className="px-4 py-3 border-b border-line">
+                  <p className="text-[12.5px] font-semibold truncate">{usuario.nombre}</p>
+                  <p className="text-[11px] text-ink-3 truncate">{usuario.correo}</p>
+                </div>
+                <button
+                  onClick={() => { setMenuAbierto(false); setPasswordAbierto(true); }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-2 hover:bg-canvas hover:text-ink transition-colors cursor-pointer"
+                >
+                  <KeyRound size={14} /> Cambiar contraseña
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      <CambiarPasswordModal abierto={passwordAbierto} onCerrar={() => setPasswordAbierto(false)} />
     </header>
   );
 }

@@ -49,4 +49,11 @@ public class AuthController {
                 .map(usuarioMapper::aDto)
                 .orElseThrow();
     }
+
+    @PutMapping("/password")
+    @Operation(summary = "Cambia la contraseña del usuario autenticado")
+    public ResponseEntity<Void> cambiarPassword(@Valid @RequestBody CambiarPasswordRequest peticion, HttpServletRequest req) {
+        authService.cambiarPassword(CurrentUser.usuarioId(), peticion, req.getRemoteAddr());
+        return ResponseEntity.noContent().build();
+    }
 }
