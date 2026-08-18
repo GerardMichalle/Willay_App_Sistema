@@ -7,6 +7,7 @@ import ActivarCuenta from './pages/ActivarCuenta';
 import Home from './pages/Home';
 import Alumnos from './pages/academico/Alumnos';
 import Aulas from './pages/academico/Aulas';
+import VincularTarjetas from './pages/academico/VincularTarjetas';
 import Colegios from './pages/superadmin/Colegios';
 import Matriculas from './pages/academico/Matriculas';
 import Apoderados from './pages/academico/Apoderados';
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/matriculas" element={<Protegida roles={['admin', 'direccion']}><Matriculas /></Protegida>} />
             <Route path="/alumnos" element={<Protegida roles={['admin', 'direccion']}><Alumnos /></Protegida>} />
             <Route path="/aulas" element={<Protegida roles={['admin', 'direccion']}><Aulas /></Protegida>} />
+            <Route path="/vincular-tarjetas" element={<Protegida roles={['admin']}><VincularTarjetas /></Protegida>} />
             <Route path="/apoderados" element={<Protegida roles={['admin', 'direccion']}><Apoderados /></Protegida>} />
             <Route path="/docentes" element={<Protegida roles={['admin', 'direccion']}><Docentes /></Protegida>} />
 

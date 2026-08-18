@@ -2,6 +2,7 @@ package com.willay.service;
 
 import com.willay.dto.LecturaDto;
 import com.willay.dto.LecturaRequest;
+import com.willay.dto.TarjetaSinAsignarDto;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
@@ -63,7 +64,17 @@ public class AsistenciaService {
         punto.setUltimoLatido(OffsetDateTime.now());   // señal de "en línea"
 
         String codigoTarjeta = req.tarjeta().trim().toUpperCase();
-        Alumno alumno = resolverAlumno(colegioId, codigoTarjeta);
+        Alumno alumno;
+        try {
+            alumno = resolverAlumno(colegioId, codigoTarjeta);
+        } catch (NotFoundException e) {
+            // No es un fallo silencioso para nadie: si hay una pantalla de
+            // "Vincular tarjetas" abierta para este colegio, se entera al
+            // instante. El lector sigue recibiendo su 404 normal.
+            monitor.difundirTarjetaSinAsignar(colegioId,
+                    new TarjetaSinAsignarDto(codigoTarjeta, OffsetDateTime.now().toString()));
+            throw e;
+        }
 
         LocalDate hoy = LocalDate.now(ZONA);
         LocalDateTime ahora = LocalDateTime.now(ZONA);

@@ -1,6 +1,7 @@
 package com.willay.service;
 
 import com.willay.dto.LecturaDto;
+import com.willay.dto.TarjetaSinAsignarDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -31,9 +32,26 @@ public class MonitorAsistenciaService {
 
     private final Map<Long, List<SseEmitter>> suscriptores = new ConcurrentHashMap<>();
 
+    /**
+     * Segundo canal, independiente del de arriba: solo lo usa la pantalla
+     * "Vincular tarjetas". Se mantiene aparte para que el evento de "tarjeta
+     * sin asignar" se pueda difundir SOLO mientras esa pantalla en particular
+     * está abierta (y no cada vez que alguien tiene Control en vivo abierto,
+     * que es mucho más frecuente en el uso normal del colegio).
+     */
+    private final Map<Long, List<SseEmitter>> suscriptoresVinculacion = new ConcurrentHashMap<>();
+
     public SseEmitter suscribir(Long colegioId) {
+        return suscribir(colegioId, suscriptores);
+    }
+
+    public SseEmitter suscribirVinculacion(Long colegioId) {
+        return suscribir(colegioId, suscriptoresVinculacion);
+    }
+
+    private SseEmitter suscribir(Long colegioId, Map<Long, List<SseEmitter>> registro) {
         SseEmitter emisor = new SseEmitter(TIEMPO_VIDA_MS);
-        List<SseEmitter> lista = suscriptores.computeIfAbsent(colegioId, k -> new CopyOnWriteArrayList<>());
+        List<SseEmitter> lista = registro.computeIfAbsent(colegioId, k -> new CopyOnWriteArrayList<>());
         lista.add(emisor);
 
         emisor.onCompletion(() -> lista.remove(emisor));
@@ -59,6 +77,25 @@ public class MonitorAsistenciaService {
                 emisor.send(SseEmitter.event().name("lectura").data(lectura));
             } catch (Exception e) {
                 // Cliente desconectado: se retira sin afectar al resto
+                lista.remove(emisor);
+            }
+        }
+    }
+
+    /**
+     * Avisa a la(s) pantalla(s) de vinculación de este colegio que llegó una
+     * tarjeta sin dueño. No hace nada si nadie tiene esa pantalla abierta:
+     * así una tarjeta vieja o rota que pasa por el lector en un día normal
+     * no genera ningún evento de más.
+     */
+    public void difundirTarjetaSinAsignar(Long colegioId, TarjetaSinAsignarDto evento) {
+        List<SseEmitter> lista = suscriptoresVinculacion.get(colegioId);
+        if (lista == null || lista.isEmpty()) return;
+
+        for (SseEmitter emisor : lista) {
+            try {
+                emisor.send(SseEmitter.event().name("tarjeta_sin_asignar").data(evento));
+            } catch (Exception e) {
                 lista.remove(emisor);
             }
         }

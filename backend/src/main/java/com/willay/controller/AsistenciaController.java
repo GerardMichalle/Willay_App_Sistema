@@ -56,6 +56,19 @@ public class AsistenciaController {
         return monitor.suscribir(CurrentUser.colegioId());
     }
 
+    /**
+     * Canal aparte para la pantalla "Vincular tarjetas": mientras esté
+     * abierto, cada tarjeta sin dueño detectada por el lector se difunde
+     * aquí (ver AsistenciaService.registrarLectura()). Solo Admin, igual
+     * que el resto de la gestión de alumnos.
+     */
+    @GetMapping(value = "/stream/vincular", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Canal SSE: avisa cuando llega una tarjeta sin asignar")
+    public SseEmitter streamVincular() {
+        return monitor.suscribirVinculacion(CurrentUser.colegioId());
+    }
+
     /** El docente solo recibe lecturas de sus aulas; el resto, todas. */
     private List<Long> aulasPermitidas() {
         var quien = CurrentUser.get();

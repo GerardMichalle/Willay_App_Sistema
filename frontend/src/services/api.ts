@@ -8,6 +8,7 @@ import type {
   ColegioApi, SetupEstado, Importacion, MatriculaResultado,
   LecturaVivo, NotificacionApi, ComunicadoApi, ConductaApi,
   LibretaApi, CursoApi, UsuarioAdminApi, PuntoAccesoApi,
+  TarjetaSinAsignarEvento,
 } from '../types';
 
 // ── Conexión real con el backend (Spring Boot en :8080, proxy de Vite) ──
@@ -199,10 +200,20 @@ function mapearAlumno(a: AlumnoApi): Alumno {
   };
 }
 
+export interface OpcionesGetAlumnos {
+  /** Acota a una sola aula (usado por "Vincular tarjetas" para achicar la búsqueda). */
+  aulaId?: number;
+  /** Solo estudiantes sin tarjeta activa (idem). */
+  sinTarjeta?: boolean;
+}
+
 /** GET /api/alumnos — el backend filtra por colegio y por el alcance del rol. */
-export async function getAlumnos(q?: string): Promise<Alumno[]> {
-  const ruta = `/api/alumnos?tamano=200${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-  const r = await http<PaginaApi<AlumnoApi>>(ruta, undefined, true);
+export async function getAlumnos(q?: string, opciones?: OpcionesGetAlumnos): Promise<Alumno[]> {
+  const params = new URLSearchParams({ tamano: '200' });
+  if (q) params.set('q', q);
+  if (opciones?.aulaId) params.set('aulaId', String(opciones.aulaId));
+  if (opciones?.sinTarjeta) params.set('sinTarjeta', 'true');
+  const r = await http<PaginaApi<AlumnoApi>>(`/api/alumnos?${params}`, undefined, true);
   return r.contenido.map(mapearAlumno);
 }
 
@@ -230,6 +241,12 @@ export async function actualizarAlumno(id: string, datos: DatosAlumno): Promise<
 /** DELETE /api/alumnos/{id} — baja lógica: conserva su historial. */
 export async function retirarAlumno(id: string): Promise<void> {
   await httpMetodo<void>('DELETE', `/api/alumnos/${id}`);
+}
+
+/** POST /api/alumnos/{id}/tarjeta — vinculación rápida desde "Vincular tarjetas". */
+export async function vincularTarjetaAlumno(id: string, uid: string): Promise<Alumno> {
+  const r = await http<AlumnoApi>(`/api/alumnos/${id}/tarjeta`, { uid }, true);
+  return mapearAlumno(r);
 }
 
 // ── Aulas ───────────────────────────────────────────────────────────
@@ -489,6 +506,26 @@ export function abrirCanalAsistencia(
   const fuente = new EventSource(`/api/asistencia/stream?token=${encodeURIComponent(token)}`);
   fuente.addEventListener('lectura', e => {
     try { alRecibir(JSON.parse((e as MessageEvent).data) as LecturaVivo); } catch { /* dato inválido */ }
+  });
+  fuente.onerror = () => { alFallar?.(); };
+  return () => fuente.close();
+}
+
+/**
+ * Canal aparte, solo para la pantalla "Vincular tarjetas": mientras está
+ * abierto, el backend difunde aquí cada tarjeta sin dueño que pasa por el
+ * lector. Mismo patrón que abrirCanalAsistencia().
+ */
+export function abrirCanalVinculacion(
+  alRecibir: (e: TarjetaSinAsignarEvento) => void,
+  alFallar?: () => void,
+): () => void {
+  const token = tokenActual();
+  if (!token) return () => {};
+
+  const fuente = new EventSource(`/api/asistencia/stream/vincular?token=${encodeURIComponent(token)}`);
+  fuente.addEventListener('tarjeta_sin_asignar', e => {
+    try { alRecibir(JSON.parse((e as MessageEvent).data) as TarjetaSinAsignarEvento); } catch { /* dato inválido */ }
   });
   fuente.onerror = () => { alFallar?.(); };
   return () => fuente.close();

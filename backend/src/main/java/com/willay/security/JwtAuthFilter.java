@@ -46,16 +46,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     /**
-     * El token viaja en la cabecera Authorization salvo en el canal SSE:
-     * la API EventSource del navegador no permite enviar cabeceras, por lo
-     * que en esa única ruta se acepta por parámetro de consulta.
+     * El token viaja en la cabecera Authorization salvo en los canales SSE
+     * (/stream y /stream/vincular): la API EventSource del navegador no
+     * permite enviar cabeceras, por lo que ahí se acepta por parámetro de
+     * consulta.
      */
     private String extraerToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             return header.substring(7);
         }
-        if (request.getRequestURI().endsWith("/api/asistencia/stream")) {
+        String uri = request.getRequestURI();
+        if (uri.endsWith("/api/asistencia/stream") || uri.endsWith("/api/asistencia/stream/vincular")) {
             String porParametro = request.getParameter("token");
             if (porParametro != null && !porParametro.isBlank()) return porParametro;
         }

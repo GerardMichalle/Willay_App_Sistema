@@ -3,6 +3,7 @@ package com.willay.controller;
 import com.willay.dto.AlumnoDto;
 import com.willay.dto.GuardarAlumnoRequest;
 import com.willay.dto.PaginaDto;
+import com.willay.dto.VincularTarjetaRequest;
 import com.willay.service.AlumnoService;
 import com.willay.util.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,9 +32,11 @@ public class AlumnoController {
     @Operation(summary = "Lista estudiantes según el alcance del rol autenticado")
     public PaginaDto<AlumnoDto> listar(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long aulaId,
+            @RequestParam(defaultValue = "false") boolean sinTarjeta,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "50") int tamano) {
-        return alumnoService.listar(CurrentUser.get(), q,
+        return alumnoService.listar(CurrentUser.get(), q, aulaId, sinTarjeta,
                 PageRequest.of(Math.max(pagina, 0), Math.min(Math.max(tamano, 1), TAMANO_MAX)));
     }
 
@@ -67,5 +70,13 @@ public class AlumnoController {
     public ResponseEntity<Void> retirar(@PathVariable Long id, HttpServletRequest http) {
         alumnoService.retirar(CurrentUser.get(), id, http.getRemoteAddr());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/tarjeta")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Vincula una tarjeta RFID ya detectada a un estudiante (pantalla Vincular tarjetas)")
+    public AlumnoDto vincularTarjeta(@PathVariable Long id, @Valid @RequestBody VincularTarjetaRequest req,
+                                     HttpServletRequest http) {
+        return alumnoService.asignarTarjetaRapida(CurrentUser.get(), id, req.uid(), http.getRemoteAddr());
     }
 }

@@ -282,6 +282,13 @@ export interface LecturaVivo {
   hora: string; estado: string; puntoAcceso: string; fotoUrl: string | null;
 }
 
+/** Evento del canal de "Vincular tarjetas": una tarjeta sin dueño pasó por el lector. */
+export interface TarjetaSinAsignarEvento {
+  uid: string;
+  /** ISO 8601. Sin hora "bonita" porque llega en vivo: el frontend calcula "hace X segundos". */
+  detectadoEn: string;
+}
+
 export interface NotificacionApi {
   id: number; tipo: string; titulo: string; cuerpo: string;
   cuando: string; leida: boolean;

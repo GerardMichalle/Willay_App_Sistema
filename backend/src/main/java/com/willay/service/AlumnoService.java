@@ -53,18 +53,19 @@ public class AlumnoService {
     // ── Lectura ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public PaginaDto<AlumnoDto> listar(UsuarioPrincipal quien, String q, Pageable pageable) {
+    public PaginaDto<AlumnoDto> listar(UsuarioPrincipal quien, String q, Long aulaId,
+                                        boolean soloSinTarjeta, Pageable pageable) {
         Long colegioId = quien.getColegioId();
         // Cadena vacía en lugar de null: PostgreSQL necesita el tipo definido
         String busqueda = (q == null || q.isBlank()) ? "" : q.trim();
 
         Page<Alumno> pagina = switch (quien.getRol()) {
-            case ADMIN, DIRECCION -> alumnoRepository.buscar(colegioId, busqueda, pageable);
+            case ADMIN, DIRECCION -> alumnoRepository.buscar(colegioId, busqueda, aulaId, soloSinTarjeta, pageable);
             case DOCENTE -> {
                 List<Long> aulas = docenteAulaRepository.aulasDelUsuarioDocente(quien.getId());
                 yield aulas.isEmpty()
                         ? Page.empty(pageable)
-                        : alumnoRepository.buscarEnAulas(colegioId, aulas, busqueda, pageable);
+                        : alumnoRepository.buscarEnAulas(colegioId, aulas, busqueda, aulaId, soloSinTarjeta, pageable);
             }
             case APODERADO -> {
                 List<Alumno> hijos = alumnoRepository.hijosDelApoderado(quien.getId());
@@ -160,6 +161,31 @@ public class AlumnoService {
                 alumno.getCodigo() + " · " + alumno.nombreCompleto(), ip);
     }
 
+    /**
+     * Vinculación rápida usada por la pantalla "Vincular tarjetas": un solo
+     * clic tras detectar el UID en el lector, sin pasar por el formulario
+     * completo de edición. Misma regla de "una sola tarjeta activa por
+     * alumno" que ya aplica actualizar().
+     */
+    @Transactional
+    public AlumnoDto asignarTarjetaRapida(UsuarioPrincipal quien, Long id, String uid, String ip) {
+        Long colegioId = quien.getColegioId();
+        Alumno alumno = buscarDelColegio(colegioId, id);
+        String codigo = uid.trim().toUpperCase();
+
+        Optional<TarjetaRfid> actual = tarjetaRepository.findByAlumnoIdAndEstado(alumno.getId(), "ACTIVA");
+        if (actual.isPresent() && actual.get().getCodigo().equals(codigo)) {
+            return enriquecedor(List.of(alumno)).apply(alumno);   // ya estaba vinculada: nada que hacer
+        }
+        actual.ifPresent(t -> t.setEstado("ANULADA"));
+        vincularTarjeta(colegioId, alumno, codigo);
+
+        auditoria.registrar(AccionAuditoria.TARJETA_VINCULADA, colegioId, quien.getId(),
+                codigo + " → " + alumno.getCodigo() + " · " + alumno.nombreCompleto(), ip);
+
+        return enriquecedor(List.of(alumno)).apply(alumno);
+    }
+
     // ── Apoyo ────────────────────────────────────────────────────────
 
     private void aplicar(Alumno alumno, GuardarAlumnoRequest req, Aula aula) {
@@ -171,9 +197,12 @@ public class AlumnoService {
     }
 
     private void vincularTarjeta(Long colegioId, Alumno alumno, String codigo) {
-        if (tarjetaRepository.existsByColegioIdAndCodigoAndEstado(colegioId, codigo, "ACTIVA")) {
-            throw new BusinessException("La tarjeta " + codigo + " ya está asignada a otro estudiante");
-        }
+        tarjetaRepository.findByColegioIdAndCodigoAndEstado(colegioId, codigo, "ACTIVA").ifPresent(existente -> {
+            Alumno dueno = existente.getAlumno();
+            String aulaTxt = dueno.getAula() != null ? " · " + dueno.getAula().etiqueta() : "";
+            throw new BusinessException("La tarjeta " + codigo + " ya está asignada a "
+                    + dueno.nombreCompleto() + aulaTxt);
+        });
         TarjetaRfid t = new TarjetaRfid();
         t.setColegio(alumno.getColegio());
         t.setAlumno(alumno);

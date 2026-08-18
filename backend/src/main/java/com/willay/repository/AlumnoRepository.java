@@ -36,16 +36,25 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
      * PostgreSQL no puede inferir el tipo de un parámetro nulo y lo trata
      * como binario, lo que hace fallar lower(). Con cadena vacía el tipo
      * queda determinado y la condición se cumple siempre.
+     *
+     * aulaId y soloSinTarjeta son opcionales (null / false = sin filtrar):
+     * los usa la pantalla "Vincular tarjetas" para acotar la búsqueda a un
+     * aula puntual y/o a estudiantes que todavía no tienen tarjeta.
      */
     @Query("""
            select a from Alumno a
            where a.colegio.id = :colegioId
              and (:q = '' or lower(concat(a.nombres, ' ', a.apellidos)) like lower(concat('%', :q, '%'))
                           or lower(a.codigo) like lower(concat('%', :q, '%')))
+             and (:aulaId is null or a.aula.id = :aulaId)
+             and (:soloSinTarjeta = false or not exists (
+                  select 1 from TarjetaRfid t where t.alumno = a and t.estado = 'ACTIVA'))
            order by a.apellidos asc, a.nombres asc
            """)
     Page<Alumno> buscar(@Param("colegioId") Long colegioId,
                         @Param("q") String q,
+                        @Param("aulaId") Long aulaId,
+                        @Param("soloSinTarjeta") boolean soloSinTarjeta,
                         Pageable pageable);
 
     /** Listado acotado a las aulas asignadas (DOCENTE). Ver nota en buscar(). */
@@ -55,11 +64,16 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
              and a.aula.id in :aulas
              and (:q = '' or lower(concat(a.nombres, ' ', a.apellidos)) like lower(concat('%', :q, '%'))
                           or lower(a.codigo) like lower(concat('%', :q, '%')))
+             and (:aulaId is null or a.aula.id = :aulaId)
+             and (:soloSinTarjeta = false or not exists (
+                  select 1 from TarjetaRfid t where t.alumno = a and t.estado = 'ACTIVA'))
            order by a.apellidos asc, a.nombres asc
            """)
     Page<Alumno> buscarEnAulas(@Param("colegioId") Long colegioId,
                                @Param("aulas") Collection<Long> aulas,
                                @Param("q") String q,
+                               @Param("aulaId") Long aulaId,
+                               @Param("soloSinTarjeta") boolean soloSinTarjeta,
                                Pageable pageable);
 
     /** Hijos vinculados a un apoderado (APODERADO). */

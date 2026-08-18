@@ -3,7 +3,7 @@ import {
   GraduationCap, Users, HeartHandshake, BookOpen, Flag,
   Radio, ListOrdered, Megaphone, TrendingUp, PieChart,
   UserCog, ShieldCheck, Settings, LogOut, LayoutGrid, FileSignature,
-  Sparkles, IdCard, BookMarked, School, Building2,
+  Sparkles, IdCard, BookMarked, School, Building2, CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from './ui';
@@ -11,7 +11,8 @@ import type { Rol } from '../types';
 
 const IC = 16;
 
-interface Item { to: string; label: string; icon: React.ReactNode; badge?: string }
+/** roles opcional: si no se indica, el ítem hereda los roles del grupo. */
+interface Item { to: string; label: string; icon: React.ReactNode; badge?: string; roles?: Rol[] }
 interface Group { label: string | null; items: Item[]; roles: Rol[] }
 
 const NAV: Group[] = [
@@ -37,6 +38,7 @@ const NAV: Group[] = [
       { to: '/matriculas', label: 'Matrículas', icon: <FileSignature size={IC} /> },
       { to: '/alumnos', label: 'Alumnos', icon: <GraduationCap size={IC} /> },
       { to: '/aulas', label: 'Aulas', icon: <School size={IC} /> },
+      { to: '/vincular-tarjetas', label: 'Vincular tarjetas', icon: <CreditCard size={IC} />, roles: ['admin'] },
       { to: '/apoderados', label: 'Apoderados', icon: <HeartHandshake size={IC} /> },
       { to: '/docentes', label: 'Docentes', icon: <Users size={IC} /> },
     ],
@@ -162,7 +164,7 @@ export default function Sidebar({ enCajon = false, onNavegar }: { enCajon?: bool
         {groups.map((g, i) => (
           <div key={i} className="mb-1">
             {g.label && <div className="label-mono px-3 pt-4 pb-1.5">{g.label}</div>}
-            {g.items.map(item => (
+            {g.items.filter(item => (item.roles ?? g.roles).includes(usuario.rol)).map(item => (
               <NavLink
                 key={item.to}
                 to={item.to}
