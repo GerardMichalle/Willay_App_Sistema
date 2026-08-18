@@ -1,11 +1,12 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { EstadoAsistencia } from '../types';
+import { getEnlaceArchivo, uuidDeRutaArchivo } from '../services/api';
 
 export function cn(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(' ');
 }
 
-/* ── Avatar con iniciales ─────────────────────────────────────────── */
+/* ── Avatar con iniciales (o foto, si el usuario tiene una) ─────────── */
 const AV_COLORS = [
   'bg-[#FDEBEB] text-[#C51F1F]',
   'bg-[#EAF1FE] text-[#2255C4]',
@@ -13,10 +14,32 @@ const AV_COLORS = [
   'bg-[#FBF1E2] text-[#A3650C]',
   'bg-[#F1EAFE] text-[#6D3FC4]',
 ];
-export function Avatar({ nombre, size = 'md' }: { nombre: string; size?: 'sm' | 'md' | 'lg' }) {
+export function Avatar({ nombre, fotoUrl, size = 'md' }: {
+  nombre: string; fotoUrl?: string | null; size?: 'sm' | 'md' | 'lg';
+}) {
   const ini = nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const color = AV_COLORS[(nombre.charCodeAt(0) + nombre.length) % AV_COLORS.length];
   const sz = size === 'sm' ? 'w-7 h-7 text-[10px]' : size === 'lg' ? 'w-11 h-11 text-[14px]' : 'w-9 h-9 text-[11.5px]';
+
+  // fotoUrl es una ruta protegida ("/api/archivos/{uuid}"): hace falta un
+  // enlace firmado para poder mostrarla, y ese enlace expira en minutos —
+  // por eso se resuelve aquí, en cada montaje, en vez de guardarse en sesión.
+  const [urlResuelta, setUrlResuelta] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fotoUrl) { setUrlResuelta(null); return; }
+    let vigente = true;
+    getEnlaceArchivo(uuidDeRutaArchivo(fotoUrl))
+      .then(u => { if (vigente) setUrlResuelta(u); })
+      .catch(() => { if (vigente) setUrlResuelta(null); });
+    return () => { vigente = false; };
+  }, [fotoUrl]);
+
+  if (urlResuelta) {
+    return (
+      <img src={urlResuelta} alt={nombre}
+        className={cn('inline-block rounded-full object-cover shrink-0', sz)} />
+    );
+  }
   return (
     <span className={cn('inline-flex items-center justify-center rounded-full font-semibold shrink-0', color, sz)}>
       {ini}

@@ -10,6 +10,8 @@ export interface Usuario {
   colegio: string;
   sede: string;
   iniciales: string;
+  /** Ruta cruda del archivo protegido ("/api/archivos/{uuid}"), no una URL directa. */
+  fotoUrl?: string | null;
   /** Aula asignada (solo docentes) */
   aula?: string;
   /** Código del alumno (solo rol alumno) */

@@ -30,6 +30,19 @@ function guardarSesion(s: Sesion) { localStorage.setItem(CLAVE_SESION, JSON.stri
 export function borrarSesion() { localStorage.removeItem(CLAVE_SESION); }
 export function tokenActual(): string | null { return sesionGuardada()?.accessToken ?? null; }
 
+/**
+ * Aplica cambios al usuario de la sesión activa (p. ej. tras subir una foto)
+ * sin volver a loguearse. Devuelve el usuario actualizado para setearlo en
+ * el estado de React, o null si no hay sesión.
+ */
+export function actualizarUsuarioSesion(cambios: Partial<Usuario>): Usuario | null {
+  const s = sesionGuardada();
+  if (!s) return null;
+  const usuario = { ...s.usuario, ...cambios };
+  guardarSesion({ ...s, usuario });
+  return usuario;
+}
+
 async function http<T>(ruta: string, body?: unknown, conAuth = false): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (conAuth) {
@@ -105,6 +118,7 @@ function mapearUsuario(u: UsuarioApi): Usuario {
     colegio: u.colegioNombre,
     sede: 'Sede Central',
     iniciales: (u.nombres[0] ?? '') + (u.apellidos[0] ?? ''),
+    fotoUrl: u.fotoUrl,
     // TODO Spring Boot (/api/auth/yo enriquecido): aula y vínculos reales.
     // Mientras tanto, valores del entorno demo para los filtros de pantalla:
     aula: rol === 'profesor' ? '5° A' : undefined,

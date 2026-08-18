@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, KeyRound } from 'lucide-react';
+import { Search, KeyRound, Camera, Loader2 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import Notificaciones from './Notificaciones';
 import CambiarPasswordModal from './CambiarPasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
+import { subirFotoPerfil } from '../services/api';
+import type { Rol } from '../types';
+
+/** Roles habilitados para cambiar su foto de perfil. Ampliar esta lista alcanza. */
+const ROLES_CON_FOTO: Rol[] = ['admin', 'superadmin'];
 
 function fechaLarga() {
   const f = new Date();
@@ -23,12 +28,27 @@ const PLACEHOLDER: Record<string, string> = {
 };
 
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { usuario } = useAuth();
+  const { usuario, actualizarUsuario } = useAuth();
   const nav = useNavigate();
   const [busqueda, setBusqueda] = useState('');
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [passwordAbierto, setPasswordAbierto] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
+  const archivoRef = useRef<HTMLInputElement>(null);
+
+  async function cambiarFoto(archivo: File | null) {
+    if (!archivo) return;
+    setSubiendoFoto(true);
+    try {
+      const rutaCruda = await subirFotoPerfil(archivo);
+      actualizarUsuario({ fotoUrl: rutaCruda });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo subir la imagen');
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
 
   /** El buscador lleva al módulo donde ese término tiene sentido para el rol. */
   function buscar(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -72,10 +92,15 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
           <div className="relative" ref={menu}>
             <button
               onClick={() => setMenuAbierto(v => !v)}
-              className="rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+              className="relative rounded-full cursor-pointer hover:opacity-80 transition-opacity"
               aria-label="Cuenta"
             >
-              <Avatar nombre={usuario.nombre} size="lg" />
+              <Avatar nombre={usuario.nombre} fotoUrl={usuario.fotoUrl} size="lg" />
+              {subiendoFoto && (
+                <span className="absolute inset-0 grid place-items-center rounded-full bg-black/50 text-white">
+                  <Loader2 size={16} className="animate-spin" />
+                </span>
+              )}
             </button>
 
             {menuAbierto && (
@@ -90,8 +115,20 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
                 >
                   <KeyRound size={14} /> Cambiar contraseña
                 </button>
+                {ROLES_CON_FOTO.includes(usuario.rol) && (
+                  <button
+                    onClick={() => { setMenuAbierto(false); archivoRef.current?.click(); }}
+                    disabled={subiendoFoto}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-2 hover:bg-canvas hover:text-ink transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    <Camera size={14} /> Cambiar foto de perfil
+                  </button>
+                )}
               </div>
             )}
+
+            <input ref={archivoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+              onChange={e => { void cambiarFoto(e.target.files?.[0] ?? null); e.target.value = ''; }} />
           </div>
         )}
       </div>
