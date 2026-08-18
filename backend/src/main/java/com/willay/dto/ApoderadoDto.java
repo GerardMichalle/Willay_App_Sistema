@@ -11,6 +11,7 @@ public record ApoderadoDto(
         String correo,
         String estadoCuenta,
         String codigoActivacion,
+        String fotoUrl,
         List<HijoResumen> hijos
 ) {
     public record HijoResumen(Long id, String codigo, String nombre, String aula, String parentesco) {}

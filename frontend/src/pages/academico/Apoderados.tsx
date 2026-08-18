@@ -48,7 +48,7 @@ export default function Apoderados() {
               <Tr key={a.id}>
                 <Td>
                   <div className="flex items-center gap-3">
-                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} />
+                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} />
                     <p className="font-semibold text-[13px]">{a.nombres} {a.apellidos}</p>
                   </div>
                 </Td>

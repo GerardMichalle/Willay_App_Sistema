@@ -153,7 +153,7 @@ public class DocenteService {
 
         return new DocenteDto(d.getId(), u.getId(), u.getNombres(), u.getApellidos(),
                 u.getCorreo(), u.getDni(), u.getTelefono(), d.getEspecialidad(),
-                d.getEstado(), u.getEstado().name(), codigo, aulas);
+                d.getEstado(), u.getEstado().name(), codigo, u.getFotoUrl(), aulas);
     }
 
     private String vacioANulo(String v) {

@@ -14,6 +14,7 @@ public record DocenteDto(
         String estado,
         String estadoCuenta,
         String codigoActivacion,
+        String fotoUrl,
         List<AulaResumen> aulas
 ) {
     public record AulaResumen(Long id, String etiqueta, boolean esTutor) {}

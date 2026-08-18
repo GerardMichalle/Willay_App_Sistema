@@ -87,6 +87,11 @@ public class ArchivoService {
         if (!archivo.getColegioId().equals(quien.getColegioId())) {
             throw new AccessDeniedException("Sin permiso");
         }
+        // Quien subió el archivo siempre puede verlo (p. ej. su propia foto
+        // de perfil): sin esto, alumnoDuenoDe() lo trataría como "sin dueño
+        // alumno" y negaría el acceso incluso al propio autor.
+        if (archivo.getSubidoPor() != null && archivo.getSubidoPor().equals(quien.getId())) return;
+
         switch (quien.getRol()) {
             case ADMIN, DIRECCION, DOCENTE -> { /* personal del colegio */ }
             case ALUMNO -> {

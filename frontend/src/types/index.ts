@@ -197,6 +197,7 @@ export interface DocenteApi {
   estado: string;
   estadoCuenta: string;
   codigoActivacion: string | null;
+  fotoUrl: string | null;
   aulas: { id: number; etiqueta: string; esTutor: boolean }[];
 }
 
@@ -209,6 +210,7 @@ export interface ApoderadoApi {
   correo: string | null;
   estadoCuenta: string;
   codigoActivacion: string | null;
+  fotoUrl: string | null;
   hijos: { id: number; codigo: string; nombre: string; aula: string; parentesco: string }[];
 }
 

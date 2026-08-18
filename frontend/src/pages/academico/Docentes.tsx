@@ -146,7 +146,7 @@ export default function Docentes() {
               <Tr key={d.id}>
                 <Td>
                   <div className="flex items-center gap-3">
-                    <Avatar nombre={`${d.nombres} ${d.apellidos}`} />
+                    <Avatar nombre={`${d.nombres} ${d.apellidos}`} fotoUrl={d.fotoUrl} />
                     <div className="leading-tight">
                       <p className="font-semibold text-[13px]">{d.nombres} {d.apellidos}</p>
                       <Mono className="!text-[10.5px]">{d.dni ? `DNI ${d.dni}` : 'Sin DNI'}</Mono>

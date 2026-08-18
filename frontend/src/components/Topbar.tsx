@@ -9,8 +9,11 @@ import { Avatar } from './ui';
 import { subirFotoPerfil } from '../services/api';
 import type { Rol } from '../types';
 
-/** Roles habilitados para cambiar su foto de perfil. Ampliar esta lista alcanza. */
-const ROLES_CON_FOTO: Rol[] = ['admin', 'superadmin'];
+/**
+ * Roles habilitados para cambiar su foto desde este menú. El alumno queda
+ * fuera porque ya tiene su propio selector de foto en "Mi perfil".
+ */
+const ROLES_CON_FOTO: Rol[] = ['admin', 'superadmin', 'direccion', 'profesor', 'apoderado'];
 
 function fechaLarga() {
   const f = new Date();

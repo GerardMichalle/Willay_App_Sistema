@@ -42,6 +42,6 @@ public class ApoderadoService {
                 : null;
 
         return new ApoderadoDto(ap.getId(), ap.getNombres(), ap.getApellidos(), ap.getDni(),
-                ap.getTelefono(), ap.getCorreo(), estado, codigo, hijos);
+                ap.getTelefono(), ap.getCorreo(), estado, codigo, u != null ? u.getFotoUrl() : null, hijos);
     }
 }
