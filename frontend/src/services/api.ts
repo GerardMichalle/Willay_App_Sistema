@@ -8,7 +8,7 @@ import type {
   ColegioApi, SetupEstado, Importacion, MatriculaResultado,
   LecturaVivo, NotificacionApi, ComunicadoApi, ConductaApi,
   LibretaApi, CursoApi, UsuarioAdminApi, PuntoAccesoApi,
-  TarjetaSinAsignarEvento,
+  TarjetaSinAsignarEvento, AsistenciaHistorialApi,
 } from '../types';
 
 // ── Conexión real con el backend (Spring Boot en :8080, proxy de Vite) ──
@@ -493,6 +493,11 @@ export async function cambiarEstadoColegio(id: number, activo: boolean): Promise
 // ── Asistencia ──────────────────────────────────────────────────────
 export async function getLecturasVivo(): Promise<LecturaVivo[]> {
   return http<LecturaVivo[]>('/api/asistencia/hoy', undefined, true);
+}
+
+/** GET /api/asistencia/historial — historial real por rango, acotado al alcance del rol. */
+export async function getHistorialAsistencia(desde: string, hasta: string): Promise<AsistenciaHistorialApi[]> {
+  return http<AsistenciaHistorialApi[]>(`/api/asistencia/historial?desde=${desde}&hasta=${hasta}`, undefined, true);
 }
 
 /**

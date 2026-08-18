@@ -1,5 +1,6 @@
 package com.willay.controller;
 
+import com.willay.dto.AsistenciaHistorialDto;
 import com.willay.dto.LecturaDto;
 import com.willay.dto.LecturaRequest;
 import com.willay.entity.Rol;
@@ -12,11 +13,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -47,6 +50,15 @@ public class AsistenciaController {
     @Operation(summary = "Últimas lecturas del día, acotadas al alcance del rol")
     public List<LecturaDto> hoy() {
         return asistenciaService.lecturasDeHoy(CurrentUser.colegioId(), aulasPermitidas());
+    }
+
+    @GetMapping("/historial")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECCION','DOCENTE','ALUMNO','APODERADO')")
+    @Operation(summary = "Historial real de asistencia por rango de fechas, según el alcance del rol")
+    public List<AsistenciaHistorialDto> historial(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return asistenciaService.historial(CurrentUser.get(), desde, hasta);
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

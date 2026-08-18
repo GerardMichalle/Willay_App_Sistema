@@ -23,4 +23,14 @@ public interface AsistenciaDiaRepository extends JpaRepository<Asistencia, Long>
            """)
     List<Asistencia> delDia(@Param("fecha") LocalDate fecha,
                             @Param("alumnos") Collection<Long> alumnos);
+
+    /** Historial real por rango de fechas (pantalla "Historial" / "Mi asistencia"). */
+    @Query("""
+           select a from Asistencia a
+           where a.alumno.id in :alumnos and a.fecha between :desde and :hasta
+           order by a.fecha desc
+           """)
+    List<Asistencia> enRango(@Param("alumnos") Collection<Long> alumnos,
+                             @Param("desde") LocalDate desde,
+                             @Param("hasta") LocalDate hasta);
 }

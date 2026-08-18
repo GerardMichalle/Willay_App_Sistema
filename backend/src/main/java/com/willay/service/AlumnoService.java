@@ -87,6 +87,30 @@ public class AlumnoService {
         return PaginaDto.de(pagina.map(enriquecedor(pagina.getContent())));
     }
 
+    /**
+     * Lista completa (sin paginar ni enriquecer) de los alumnos visibles para
+     * este usuario, mismo alcance por rol que listar(). Pensado para consultas
+     * que solo necesitan "a quiénes puede ver" — p. ej. el historial de
+     * asistencia por rango de fechas — sin pagar el costo de enriquecer cada
+     * fila con tarjeta/apoderado/asistencia de hoy.
+     */
+    @Transactional(readOnly = true)
+    public List<Alumno> alumnosVisibles(UsuarioPrincipal quien) {
+        Long colegioId = quien.getColegioId();
+        return switch (quien.getRol()) {
+            case ADMIN, DIRECCION -> alumnoRepository.findByColegioIdOrderByApellidosAsc(colegioId);
+            case DOCENTE -> {
+                List<Long> aulas = docenteAulaRepository.aulasDelUsuarioDocente(quien.getId());
+                yield aulas.stream()
+                        .flatMap(aulaId -> alumnoRepository.findByAulaIdOrderByApellidosAsc(aulaId).stream())
+                        .toList();
+            }
+            case APODERADO -> alumnoRepository.hijosDelApoderado(quien.getId());
+            case ALUMNO -> alumnoRepository.findByUsuarioId(quien.getId()).map(List::of).orElse(List.of());
+            default -> List.of();   // SUPER_ADMIN no consulta estudiantes
+        };
+    }
+
     @Transactional(readOnly = true)
     public AlumnoDto porId(UsuarioPrincipal quien, Long id) {
         Alumno alumno = buscarDelColegio(quien.getColegioId(), id);

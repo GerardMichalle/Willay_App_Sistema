@@ -3,8 +3,38 @@ import { Camera, Download, Wifi, Flame, CheckCircle2, Award, Loader2 } from 'luc
 import Topbar from '../../components/Topbar';
 import { PanelHead, Mono, Pill, cn } from '../../components/ui';
 import { LogoWillay } from '../../components/Sidebar';
-import { getAlumnos, getQrAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo } from '../../services/api';
-import type { Alumno } from '../../types';
+import {
+  getAlumnos, getQrAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo,
+  getConductaApi, getLibretas, getHistorialAsistencia,
+} from '../../services/api';
+import type { Alumno, ConductaApi, AsistenciaHistorialApi } from '../../types';
+
+/** yyyy-MM-dd en hora local (evita el corrimiento de un día de toISOString/UTC). */
+function comoIso(f: Date): string {
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Racha de días de clase consecutivos con asistencia real (PUNTUAL o
+ * TARDANZA). Un salto de hasta 3 días calendario se admite como "seguido"
+ * para no romper la racha en cada fin de semana.
+ */
+function calcularRacha(historial: AsistenciaHistorialApi[]): number {
+  const presentes = historial
+    .filter(h => h.estado === 'PUNTUAL' || h.estado === 'TARDANZA')
+    .slice()
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  if (presentes.length === 0) return 0;
+
+  let racha = 1;
+  let anterior = new Date(presentes[0].fecha + 'T00:00:00');
+  for (let i = 1; i < presentes.length; i++) {
+    const actual = new Date(presentes[i].fecha + 'T00:00:00');
+    const diasEntre = Math.round((anterior.getTime() - actual.getTime()) / 86_400_000);
+    if (diasEntre >= 1 && diasEntre <= 3) { racha++; anterior = actual; } else break;
+  }
+  return racha;
+}
 
 /**
  * Credencial digital del estudiante.
@@ -52,6 +82,10 @@ export default function MiPerfil() {
   const [subiendo, setSubiendo] = useState(false);
   const archivoRef = useRef<HTMLInputElement>(null);
 
+  const [conducta, setConducta] = useState<ConductaApi[]>([]);
+  const [promedio, setPromedio] = useState<number | null>(null);
+  const [historial, setHistorial] = useState<AsistenciaHistorialApi[]>([]);
+
   async function cambiarFoto(f: File | null) {
     if (!f) return;
     setSubiendo(true);
@@ -79,6 +113,23 @@ export default function MiPerfil() {
       .catch(() => setAlumnoId(null));
   }, []);
 
+  useEffect(() => {
+    const hoy = new Date();
+    const desde = new Date(hoy);
+    desde.setDate(hoy.getDate() - 45); // suficiente para el mes en curso + una racha razonable
+
+    Promise.all([
+      getConductaApi().catch(() => []),
+      getLibretas().catch(() => []),
+      getHistorialAsistencia(comoIso(desde), comoIso(hoy)).catch(() => []),
+    ]).then(([cond, libretas, hist]) => {
+      setConducta(cond);
+      const promedios = libretas.map(l => l.promedio).filter((p): p is number => p != null);
+      setPromedio(promedios.length ? promedios.reduce((a, b) => a + b, 0) / promedios.length : null);
+      setHistorial(hist);
+    });
+  }, []);
+
   async function descargarQr() {
     if (alumnoId == null) return;
     setDescargando(true);
@@ -93,6 +144,32 @@ export default function MiPerfil() {
       setDescargando(false);
     }
   }
+
+  const meritos = conducta.filter(c => c.tipo === 'MERITO').length;
+  const ultimaConducta = conducta.length
+    ? [...conducta].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+    : null;
+
+  const hoy = new Date();
+  const mesTexto = hoy.toLocaleDateString('es-PE', { month: 'long' });
+  const mesActual = mesTexto.charAt(0).toUpperCase() + mesTexto.slice(1);
+
+  const esteMes = historial.filter(h => {
+    const f = new Date(h.fecha + 'T00:00:00');
+    return f.getFullYear() === hoy.getFullYear() && f.getMonth() === hoy.getMonth();
+  });
+  const asisti = esteMes.filter(h => h.estado === 'PUNTUAL' || h.estado === 'TARDANZA').length;
+  const tardanzasMes = esteMes.filter(h => h.estado === 'TARDANZA').length;
+  const faltasMes = esteMes.filter(h => h.estado === 'AUSENTE').length;
+  const racha = calcularRacha(historial);
+
+  // Una barra por día hábil (lunes a viernes) del mes en curso.
+  const porFecha = new Map(esteMes.map(h => [h.fecha, h.estado]));
+  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const barras = Array.from({ length: diasDelMes }, (_, i) => {
+    const fechaObj = new Date(hoy.getFullYear(), hoy.getMonth(), i + 1);
+    return { dia: i + 1, finDeSemana: fechaObj.getDay() === 0 || fechaObj.getDay() === 6, estado: porFecha.get(comoIso(fechaObj)) };
+  }).filter(b => !b.finDeSemana);
 
   return (
     <>
@@ -133,15 +210,15 @@ export default function MiPerfil() {
             </div>
             <div className="flex gap-6 pb-1">
               <div className="text-center">
-                <div className="flex items-center gap-1 justify-center text-warn"><Flame size={15} /><span className="text-[20px] font-bold">12</span></div>
+                <div className="flex items-center gap-1 justify-center text-warn"><Flame size={15} /><span className="text-[20px] font-bold">{racha}</span></div>
                 <div className="label-mono !text-[9px] mt-0.5">Días seguidos</div>
               </div>
               <div className="text-center">
-                <div className="flex items-center gap-1 justify-center text-ok"><CheckCircle2 size={15} /><span className="text-[20px] font-bold">18.2</span></div>
+                <div className="flex items-center gap-1 justify-center text-ok"><CheckCircle2 size={15} /><span className="text-[20px] font-bold">{promedio != null ? promedio.toFixed(1) : '—'}</span></div>
                 <div className="label-mono !text-[9px] mt-0.5">Promedio</div>
               </div>
               <div className="text-center">
-                <div className="flex items-center gap-1 justify-center text-info"><Award size={15} /><span className="text-[20px] font-bold">2</span></div>
+                <div className="flex items-center gap-1 justify-center text-info"><Award size={15} /><span className="text-[20px] font-bold">{meritos}</span></div>
                 <div className="label-mono !text-[9px] mt-0.5">Méritos</div>
               </div>
             </div>
@@ -187,29 +264,45 @@ export default function MiPerfil() {
           {/* Mi asistencia + conducta */}
           <div className="space-y-4">
             <div className="card p-6">
-              <PanelHead title="Mi asistencia · Julio" />
+              <PanelHead title={`Mi asistencia · ${mesActual}`} />
               <div className="flex gap-8">
-                <div><div className="label-mono">Asistí</div><div className="text-[24px] font-bold text-ok">20</div></div>
-                <div><div className="label-mono">Tardanzas</div><div className="text-[24px] font-bold text-warn">1</div></div>
-                <div><div className="label-mono">Faltas</div><div className="text-[24px] font-bold">0</div></div>
+                <div><div className="label-mono">Asistí</div><div className="text-[24px] font-bold text-ok">{asisti}</div></div>
+                <div><div className="label-mono">Tardanzas</div><div className="text-[24px] font-bold text-warn">{tardanzasMes}</div></div>
+                <div><div className="label-mono">Faltas</div><div className="text-[24px] font-bold">{faltasMes}</div></div>
               </div>
-              <div className="mt-4 flex gap-1">
-                {Array.from({ length: 21 }, (_, i) => (
-                  <span key={i} className={cn('h-2 flex-1 rounded-full', i === 9 ? 'bg-warn' : 'bg-ok/70')} title={`Día ${i + 1}`} />
-                ))}
-              </div>
-              <p className="text-[11.5px] text-ink-3 mt-2">Cada barra es un día de clases del mes.</p>
+              {barras.length > 0 && (
+                <>
+                  <div className="mt-4 flex gap-1">
+                    {barras.map(b => (
+                      <span key={b.dia}
+                        className={cn('h-2 flex-1 rounded-full',
+                          b.estado === 'TARDANZA' ? 'bg-warn' : b.estado ? 'bg-ok/70' : 'bg-line')}
+                        title={`Día ${b.dia}${b.estado ? ` · ${b.estado}` : ' · sin registro'}`} />
+                    ))}
+                  </div>
+                  <p className="text-[11.5px] text-ink-3 mt-2">Cada barra es un día de clases del mes (lunes a viernes).</p>
+                </>
+              )}
             </div>
             <div className="card p-6">
               <PanelHead title="Mi conducta" />
-              <div className="flex items-start gap-3">
-                <span className="grid place-items-center w-8 h-8 rounded-full bg-ok-soft text-ok shrink-0"><Award size={14} /></span>
-                <div>
-                  <p className="text-[13px] font-semibold">Mérito · Representación</p>
-                  <p className="text-[12px] text-ink-2 mt-0.5">Primer puesto en concurso de matemática UGEL.</p>
-                  <Mono className="!text-[10.5px] mt-1 block">28 JUL 2026 · Dirección</Mono>
+              {ultimaConducta ? (
+                <div className="flex items-start gap-3">
+                  <span className={cn('grid place-items-center w-8 h-8 rounded-full shrink-0',
+                    ultimaConducta.tipo === 'MERITO' ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad')}>
+                    <Award size={14} />
+                  </span>
+                  <div>
+                    <p className="text-[13px] font-semibold">
+                      {ultimaConducta.tipo === 'MERITO' ? 'Mérito' : 'Observación'} · {ultimaConducta.categoria}
+                    </p>
+                    <p className="text-[12px] text-ink-2 mt-0.5">{ultimaConducta.descripcion}</p>
+                    <Mono className="!text-[10.5px] mt-1 block">{ultimaConducta.fecha} · {ultimaConducta.registradoPor}</Mono>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-[12.5px] text-ink-3 py-4 text-center">Aún no tienes registros de conducta.</p>
+              )}
             </div>
           </div>
         </div>

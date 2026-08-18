@@ -280,6 +280,13 @@ export interface LecturaVivo {
   hora: string; estado: string; puntoAcceso: string; fotoUrl: string | null;
 }
 
+/** Una fila real de historial de asistencia (GET /api/asistencia/historial). */
+export interface AsistenciaHistorialApi {
+  alumnoId: number; codigoAlumno: string; nombreAlumno: string;
+  grado: string | null; seccion: string | null;
+  fecha: string; horaEntrada: string | null; horaSalida: string | null; estado: string;
+}
+
 /** Evento del canal de "Vincular tarjetas": una tarjeta sin dueño pasó por el lector. */
 export interface TarjetaSinAsignarEvento {
   uid: string;

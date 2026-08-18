@@ -1,5 +1,6 @@
 package com.willay.service;
 
+import com.willay.dto.AsistenciaHistorialDto;
 import com.willay.dto.LecturaDto;
 import com.willay.dto.LecturaRequest;
 import com.willay.dto.TarjetaSinAsignarDto;
@@ -7,6 +8,7 @@ import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
+import com.willay.security.UsuarioPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,8 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Núcleo de asistencia: recibe las lecturas del hardware y las convierte
@@ -48,11 +53,13 @@ public class AsistenciaService {
     private final AlumnoRepository alumnoRepository;
     private final RegistroAccesoRepository registroRepository;
     private final AsistenciaRepository asistenciaRepository;
+    private final AsistenciaDiaRepository asistenciaDiaRepository;
     private final AlumnoApoderadoRepository vinculoRepository;
     private final NotificacionRepository notificacionRepository;
     private final ConfiguracionRepository configuracionRepository;
     private final PasswordEncoder passwordEncoder;
     private final MonitorAsistenciaService monitor;
+    private final AlumnoService alumnoService;
 
     // ── Recepción de la lectura ──────────────────────────────────────
 
@@ -124,6 +131,36 @@ public class AsistenciaService {
                 .limit(60)
                 .map(r -> construirDto(r, r.getAlumno(), r.getPuntoAcceso(),
                         estadoDelDia(r.getAlumno().getId(), LocalDate.now(ZONA))))
+                .toList();
+    }
+
+    /**
+     * Historial real por rango de fechas, acotado al mismo alcance de
+     * alumnoService.alumnosVisibles() (docente → sus aulas, apoderado → sus
+     * hijos, alumno → él mismo, admin/dirección → todo el colegio).
+     */
+    @Transactional(readOnly = true)
+    public List<AsistenciaHistorialDto> historial(UsuarioPrincipal quien, LocalDate desde, LocalDate hasta) {
+        List<Alumno> visibles = alumnoService.alumnosVisibles(quien);
+        if (visibles.isEmpty()) return List.of();
+
+        Map<Long, Alumno> porId = visibles.stream()
+                .collect(Collectors.toMap(Alumno::getId, a -> a, (a, b) -> a));
+
+        return asistenciaDiaRepository.enRango(porId.keySet(), desde, hasta).stream()
+                .sorted(Comparator.comparing(Asistencia::getFecha).reversed())
+                .map(a -> {
+                    Alumno al = porId.get(a.getAlumno().getId());
+                    Aula aula = al.getAula();
+                    return new AsistenciaHistorialDto(
+                            al.getId(), al.getCodigo(), al.nombreCompleto(),
+                            aula != null ? aula.getGrado() + "°" : null,
+                            aula != null ? aula.getSeccion() : null,
+                            a.getFecha().toString(),
+                            a.getHoraEntrada() != null ? a.getHoraEntrada().format(HORA) : null,
+                            a.getHoraSalida() != null ? a.getHoraSalida().format(HORA) : null,
+                            a.getEstado());
+                })
                 .toList();
     }
 
