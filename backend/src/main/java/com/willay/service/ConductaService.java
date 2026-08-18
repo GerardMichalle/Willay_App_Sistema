@@ -6,6 +6,7 @@ import com.willay.entity.*;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +78,7 @@ public class ConductaService {
         c.setTipo(req.tipo());
         c.setCategoria(req.categoria().trim());
         c.setDescripcion(req.descripcion().trim());
-        c.setFecha(req.fecha() != null ? req.fecha() : LocalDate.now());
+        c.setFecha(req.fecha() != null ? req.fecha() : LocalDate.now(ZonaHoraria.LIMA));
         conductaRepository.save(c);
 
         notificarApoderados(c);

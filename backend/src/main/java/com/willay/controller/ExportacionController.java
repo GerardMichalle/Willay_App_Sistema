@@ -2,6 +2,7 @@ package com.willay.controller;
 
 import com.willay.service.ExportacionService;
 import com.willay.util.CurrentUser;
+import com.willay.util.ZonaHoraria;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,7 @@ public class ExportacionController {
     @Operation(summary = "Asistencia de una fecha en Excel")
     public ResponseEntity<byte[]> asistencia(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        LocalDate dia = fecha != null ? fecha : LocalDate.now();
+        LocalDate dia = fecha != null ? fecha : LocalDate.now(ZonaHoraria.LIMA);
         return archivo("willay-asistencia-" + dia + ".xlsx",
                 exportacionService.asistencia(CurrentUser.colegioId(), dia));
     }

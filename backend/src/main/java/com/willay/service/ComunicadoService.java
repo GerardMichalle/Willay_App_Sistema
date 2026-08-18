@@ -6,6 +6,7 @@ import com.willay.entity.*;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -182,7 +183,7 @@ public class ComunicadoService {
                 c.getDirigidoA(),
                 c.getAula() != null ? c.getAula().getId() : null,
                 c.getAula() != null ? c.getAula().etiqueta() : null,
-                c.getPublicadoEn() != null ? c.getPublicadoEn().format(FECHA) : null,
+                c.getPublicadoEn() != null ? c.getPublicadoEn().atZoneSameInstant(ZonaHoraria.LIMA).format(FECHA) : null,
                 c.getPublicadoEn() != null,
                 lecturas, destinatarios,
                 lecturaRepository.existsByComunicadoIdAndUsuarioId(c.getId(), usuarioId));

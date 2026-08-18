@@ -8,6 +8,7 @@ import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -219,7 +220,7 @@ public class LibretaService {
                 l.getPeriodo(), l.getAnioEscolar(),
                 l.getPromedio() != null ? l.getPromedio().doubleValue() : null,
                 l.getObservacion(), l.getPublicadaEn() != null,
-                l.getPublicadaEn() != null ? l.getPublicadaEn().format(FECHA) : null,
+                l.getPublicadaEn() != null ? l.getPublicadaEn().atZoneSameInstant(ZonaHoraria.LIMA).format(FECHA) : null,
                 notas,
                 l.getArchivoUuid() != null,
                 l.getArchivoUuid() != null ? l.getArchivoUuid().toString() : null);

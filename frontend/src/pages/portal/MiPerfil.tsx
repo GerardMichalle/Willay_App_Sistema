@@ -7,6 +7,7 @@ import {
   getAlumnos, getQrAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo,
   getConductaApi, getLibretas, getHistorialAsistencia,
 } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import type { Alumno, ConductaApi, AsistenciaHistorialApi } from '../../types';
 
 /** yyyy-MM-dd en hora local (evita el corrimiento de un día de toISOString/UTC). */
@@ -75,6 +76,7 @@ function QrCredencial({ alumnoId, size = 108 }: { alumnoId: number | null; size?
 }
 
 export default function MiPerfil() {
+  const { usuario } = useAuth();
   const [alumnoId, setAlumnoId] = useState<number | null>(null);
   const [yo, setYo] = useState<Alumno | null>(null);
   const [descargando, setDescargando] = useState(false);
@@ -250,7 +252,7 @@ export default function MiPerfil() {
               </div>
             </div>
             <div className="flex items-center justify-between mt-4">
-              <p className="text-[11.5px] text-ink-3">I.E.P. San Martín · válida 2026</p>
+              <p className="text-[11.5px] text-ink-3">{usuario?.colegio ?? '—'} · válida {new Date().getFullYear()}</p>
               <button
                 onClick={descargarQr}
                 disabled={alumnoId == null || descargando}

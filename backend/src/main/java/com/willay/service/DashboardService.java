@@ -3,6 +3,7 @@ package com.willay.service;
 import com.willay.dto.DashboardStatsDto;
 import com.willay.entity.Rol;
 import com.willay.repository.*;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,7 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public DashboardStatsDto stats(Long colegioId) {
-        LocalDate hoy = LocalDate.now();
+        LocalDate hoy = LocalDate.now(ZonaHoraria.LIMA);
 
         // Una sola consulta agrupada en lugar de cuatro COUNT separados
         Map<String, Long> porEstado = new HashMap<>();

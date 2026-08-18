@@ -7,6 +7,7 @@ import com.willay.exception.NotFoundException;
 import com.willay.repository.ColegioRepository;
 import com.willay.repository.PuntoAccesoRepository;
 import com.willay.repository.SedeRepository;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -96,6 +97,6 @@ public class PuntoAccesoService {
         boolean enLinea = p.getUltimoLatido() != null
                 && Duration.between(p.getUltimoLatido(), OffsetDateTime.now()).toMinutes() < MINUTOS_EN_LINEA;
         return new PuntoAccesoDto(p.getId(), p.getNombre(), p.isActivo(), enLinea,
-                p.getUltimoLatido() != null ? p.getUltimoLatido().format(FECHA) : null, claveNueva);
+                p.getUltimoLatido() != null ? p.getUltimoLatido().atZoneSameInstant(ZonaHoraria.LIMA).format(FECHA) : null, claveNueva);
     }
 }

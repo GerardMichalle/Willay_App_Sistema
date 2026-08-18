@@ -9,6 +9,7 @@ import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,7 +44,7 @@ import java.util.stream.Collectors;
 public class AsistenciaService {
 
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
-    private static final ZoneId ZONA = ZoneId.of("America/Lima");
+    private static final ZoneId ZONA = ZonaHoraria.LIMA;
 
     /** Lecturas repetidas dentro de este lapso se ignoran. */
     private static final int GRACIA_SEGUNDOS = 90;

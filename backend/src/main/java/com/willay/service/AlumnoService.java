@@ -11,6 +11,7 @@ import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -286,7 +287,7 @@ public class AlumnoService {
         t.setAlumno(alumno);
         t.setCodigo(codigo);
         t.setEstado("ACTIVA");
-        t.setEmitidaEn(LocalDate.now());
+        t.setEmitidaEn(LocalDate.now(ZonaHoraria.LIMA));
         tarjetaRepository.save(t);
     }
 
@@ -325,7 +326,7 @@ public class AlumnoService {
                     .collect(Collectors.toMap(t -> t.getAlumno().getId(), TarjetaRfid::getCodigo, (a, b) -> a));
 
         Map<Long, Asistencia> asistencias = ids.isEmpty() ? Map.of()
-                : asistenciaDiaRepository.delDia(LocalDate.now(), ids).stream()
+                : asistenciaDiaRepository.delDia(LocalDate.now(ZonaHoraria.LIMA), ids).stream()
                     .collect(Collectors.toMap(a -> a.getAlumno().getId(), a -> a, (a, b) -> a));
 
         Map<Long, AlumnoApoderado> apoderados = new HashMap<>();
