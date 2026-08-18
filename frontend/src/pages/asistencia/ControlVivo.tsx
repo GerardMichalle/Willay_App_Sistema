@@ -135,7 +135,7 @@ export default function ControlVivo() {
                 <div key={`${l.id}-${i}`}
                   className={cn('flex items-center gap-3.5 rounded-[10px] px-3 py-2.5 -mx-1 transition-colors',
                     i === 0 && 'animate-slide-in bg-brand-faint')}>
-                  <Avatar nombre={l.nombre} size="sm" />
+                  <Avatar nombre={l.nombre} fotoUrl={l.fotoUrl} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-semibold truncate">{l.nombre}</p>
                     <Mono className="!text-[10.5px]">{l.grado} · {l.tarjeta} · {l.puntoAcceso}</Mono>

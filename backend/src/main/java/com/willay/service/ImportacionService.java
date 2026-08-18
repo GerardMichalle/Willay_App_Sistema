@@ -9,6 +9,7 @@ import com.willay.entity.Aula;
 import com.willay.exception.BusinessException;
 import com.willay.repository.AlumnoRepository;
 import com.willay.repository.AulaRepository;
+import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -73,6 +74,15 @@ public class ImportacionService {
             }
         } catch (IOException e) {
             throw new BusinessException("No se pudo leer el archivo. ¿Es un .xlsx válido?");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // Apache POI puede romperse en celdas que Excel abre sin problema
+            // (fechas nativas de otros programas, formatos poco comunes, etc.):
+            // que una sola celda rara tumbe el import entero con un 500 crudo
+            // es peor que este mensaje genérico.
+            log.warn("Fallo de POI leyendo Excel de importación", e);
+            throw new BusinessException("No se pudo leer el archivo. Revisa que las celdas de fecha estén en formato AAAA-MM-DD y vuelve a intentarlo.");
         }
 
         int validas = (int) filas.stream().filter(ImportacionDto.FilaDto::valida).count();
@@ -95,10 +105,11 @@ public class ImportacionService {
             MatriculaRequest req = new MatriculaRequest(
                     new MatriculaRequest.DatosAlumno(
                             f.nombresAlumno(), f.apellidosAlumno(), vacioANulo(f.dniAlumno()),
-                            null, aula.getId(), vacioANulo(f.tarjetaRfid()), false, null),
+                            f.fechaNacimiento() != null ? LocalDate.parse(f.fechaNacimiento()) : null,
+                            aula.getId(), vacioANulo(f.tarjetaRfid()), false, null),
                     new MatriculaRequest.DatosApoderado(
                             f.nombresApoderado(), f.apellidosApoderado(), f.dniApoderado(),
-                            vacioANulo(f.telefonoApoderado()), vacioANulo(f.correoApoderado()), "APODERADO"));
+                            vacioANulo(f.telefonoApoderado()), vacioANulo(f.correoApoderado()), f.parentesco()));
 
             resultados.add(matriculaService.matricular(colegioId, autorId, req, ip));
         }
@@ -150,6 +161,7 @@ public class ImportacionService {
         String nombresAl   = texto(fila, 0);
         String apellidosAl = texto(fila, 1);
         String dniAl       = texto(fila, 2);
+        String fechaNacTxt = texto(fila, 3);
         String grado       = texto(fila, 4);
         String seccion     = texto(fila, 5);
         String nivel       = texto(fila, 6).toUpperCase();
@@ -159,8 +171,10 @@ public class ImportacionService {
         String dniAp       = texto(fila, 10);
         String telefonoAp  = texto(fila, 11);
         String correoAp    = texto(fila, 12);
+        String parentesco  = texto(fila, 13).toUpperCase();
 
         if (nivel.isBlank()) nivel = "PRIMARIA";
+        if (parentesco.isBlank()) parentesco = "APODERADO";
         String clave = nivel + "|" + grado + "|" + seccion.toUpperCase();
 
         List<String> errores = new ArrayList<>();
@@ -171,14 +185,22 @@ public class ImportacionService {
         if (!dniAl.isBlank() && !dniAl.matches("\\d{8}")) errores.add("DNI del estudiante inválido");
         if (!aulas.containsKey(clave)) errores.add("No existe el aula " + grado + "° " + seccion + " (" + nivel + ")");
 
+        LocalDate fechaNac = fechaNacTxt.isBlank() ? null : fecha(fechaNacTxt);
+        if (!fechaNacTxt.isBlank() && fechaNac == null) {
+            errores.add("Fecha de nacimiento inválida (usa AAAA-MM-DD)");
+        } else if (fechaNac != null && !fechaNac.isBefore(LocalDate.now(ZonaHoraria.LIMA))) {
+            errores.add("La fecha de nacimiento debe ser anterior a hoy");
+        }
+
         if (!dniAl.isBlank()) {
             if (!dnisEnArchivo.add(dniAl)) errores.add("DNI repetido dentro del archivo");
             else if (alumnoRepository.existsByColegioIdAndDni(colegioId, dniAl))
                 errores.add("El estudiante ya está matriculado");
         }
 
-        return new ImportacionDto.FilaDto(numero, nombresAl, apellidosAl, dniAl, clave,
-                nombresAp, apellidosAp, dniAp, telefonoAp, correoAp, tarjeta,
+        return new ImportacionDto.FilaDto(numero, nombresAl, apellidosAl, dniAl,
+                fechaNac != null ? fechaNac.toString() : null, clave,
+                nombresAp, apellidosAp, dniAp, telefonoAp, correoAp, tarjeta, parentesco,
                 errores.isEmpty(), errores);
     }
 
@@ -232,7 +254,6 @@ public class ImportacionService {
         return v == null || v.isBlank() ? null : v.trim();
     }
 
-    @SuppressWarnings("unused")
     private LocalDate fecha(String v) {
         try { return LocalDate.parse(v); } catch (Exception e) { return null; }
     }

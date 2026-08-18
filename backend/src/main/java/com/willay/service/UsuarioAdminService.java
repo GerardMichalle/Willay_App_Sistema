@@ -79,6 +79,7 @@ public class UsuarioAdminService {
                 : null;
         return new UsuarioAdminDto(u.getId(), u.getNombres(), u.getApellidos(), u.getCorreo(),
                 u.getRol().name(), u.getEstado().name(), u.getDni(), u.getTelefono(),
-                u.getUltimoAcceso() != null ? u.getUltimoAcceso().atZoneSameInstant(ZonaHoraria.LIMA).format(FECHA) : null, codigo);
+                u.getUltimoAcceso() != null ? u.getUltimoAcceso().atZoneSameInstant(ZonaHoraria.LIMA).format(FECHA) : null,
+                codigo, u.getFotoUrl());
     }
 }

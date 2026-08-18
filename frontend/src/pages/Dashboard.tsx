@@ -245,7 +245,7 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {cumples.map(a => (
                   <div key={a.id} className="flex items-center gap-3">
-                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} />
+                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[12.5px] font-semibold truncate">{a.nombres} {a.apellidos}</p>
                       <Mono className="!text-[10.5px]">{a.grado} "{a.seccion}" · {a.codigo}</Mono>

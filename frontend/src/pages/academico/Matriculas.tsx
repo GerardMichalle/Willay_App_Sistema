@@ -256,7 +256,10 @@ export default function Matriculas() {
                           <td className="px-3 py-2"><Mono>{f.numeroFila}</Mono></td>
                           <td className="px-3 py-2 font-medium">{f.nombresAlumno} {f.apellidosAlumno}</td>
                           <td className="px-3 py-2"><Mono className="!text-[11px]">{f.aula.replace(/\|/g, ' ')}</Mono></td>
-                          <td className="px-3 py-2 text-ink-2">{f.nombresApoderado} {f.apellidosApoderado}</td>
+                          <td className="px-3 py-2 text-ink-2">
+                            {f.nombresApoderado} {f.apellidosApoderado}
+                            {f.nombresApoderado && <span className="text-ink-3"> · {f.parentesco}</span>}
+                          </td>
                           <td className="px-3 py-2">
                             {f.valida ? (
                               <span className="inline-flex items-center gap-1.5 text-ok text-[11.5px] font-semibold">
@@ -305,7 +308,7 @@ export default function Matriculas() {
               <Tr key={a.id}>
                 <Td>
                   <div className="flex items-center gap-3">
-                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} size="sm" />
+                    <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} size="sm" />
                     <span className="font-semibold text-[13px]">{a.nombres} {a.apellidos}</span>
                   </div>
                 </Td>

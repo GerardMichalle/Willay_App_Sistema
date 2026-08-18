@@ -18,6 +18,7 @@ public record ImportacionDto(
             String nombresAlumno,
             String apellidosAlumno,
             String dniAlumno,
+            String fechaNacimiento,
             String aula,
             String nombresApoderado,
             String apellidosApoderado,
@@ -25,6 +26,7 @@ public record ImportacionDto(
             String telefonoApoderado,
             String correoApoderado,
             String tarjetaRfid,
+            String parentesco,
             boolean valida,
             List<String> errores
     ) {}

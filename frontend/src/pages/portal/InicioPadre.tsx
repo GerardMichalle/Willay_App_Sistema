@@ -72,7 +72,7 @@ export default function InicioPadre() {
           return (
             <div key={h.id} className="card p-6 flex flex-wrap items-center gap-5">
               <span className="relative">
-                <Avatar nombre={`${h.nombres} ${h.apellidos}`} size="lg" />
+                <Avatar nombre={`${h.nombres} ${h.apellidos}`} fotoUrl={h.fotoUrl} size="lg" />
                 <span className={cn('absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-[3px] border-paper',
                   dentro ? 'bg-ok' : 'bg-ink-3')} />
               </span>

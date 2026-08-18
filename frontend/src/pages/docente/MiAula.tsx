@@ -111,7 +111,7 @@ export default function MiAula() {
                 <Tr key={a.id}>
                   <Td>
                     <div className="flex items-center gap-3">
-                      <Avatar nombre={`${a.nombres} ${a.apellidos}`} size="sm" />
+                      <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} size="sm" />
                       <span className="font-semibold text-[13px]">{a.nombres} {a.apellidos}</span>
                     </div>
                   </Td>

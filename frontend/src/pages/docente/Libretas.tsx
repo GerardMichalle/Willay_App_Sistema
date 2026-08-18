@@ -123,7 +123,7 @@ export default function Libretas() {
                     <Tr key={a.id}>
                       <Td>
                         <div className="flex items-center gap-3">
-                          <Avatar nombre={`${a.nombres} ${a.apellidos}`} size="sm" />
+                          <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} size="sm" />
                           <div className="leading-tight">
                             <p className="font-semibold text-[13px]">{a.nombres} {a.apellidos}</p>
                             <Mono className="!text-[10.5px]">{a.codigo} · {a.grado} "{a.seccion}"</Mono>

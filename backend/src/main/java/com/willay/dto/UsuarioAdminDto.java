@@ -10,5 +10,6 @@ public record UsuarioAdminDto(
         String dni,
         String telefono,
         String ultimoAcceso,
-        String codigoActivacion
+        String codigoActivacion,
+        String fotoUrl
 ) {}

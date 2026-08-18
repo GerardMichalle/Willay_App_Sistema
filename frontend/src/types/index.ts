@@ -243,6 +243,7 @@ export interface FilaImportacion {
   nombresAlumno: string;
   apellidosAlumno: string;
   dniAlumno: string;
+  fechaNacimiento: string | null;
   aula: string;
   nombresApoderado: string;
   apellidosApoderado: string;
@@ -250,6 +251,7 @@ export interface FilaImportacion {
   telefonoApoderado: string;
   correoApoderado: string;
   tarjetaRfid: string;
+  parentesco: string;
   valida: boolean;
   errores: string[];
 }
@@ -328,6 +330,7 @@ export interface UsuarioAdminApi {
   id: number; nombres: string; apellidos: string; correo: string;
   rol: string; estado: string; dni: string | null; telefono: string | null;
   ultimoAcceso: string | null; codigoActivacion: string | null;
+  fotoUrl: string | null;
 }
 
 export interface PuntoAccesoApi {

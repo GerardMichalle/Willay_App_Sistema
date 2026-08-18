@@ -105,7 +105,7 @@ export default function Usuarios() {
               <Tr key={u.id}>
                 <Td>
                   <div className="flex items-center gap-3">
-                    <Avatar nombre={`${u.nombres} ${u.apellidos}`} size="sm" />
+                    <Avatar nombre={`${u.nombres} ${u.apellidos}`} fotoUrl={u.fotoUrl} size="sm" />
                     <div className="leading-tight">
                       <p className="font-semibold text-[13px]">{u.nombres} {u.apellidos}</p>
                       <Mono className="!text-[10.5px]">{u.correo}</Mono>

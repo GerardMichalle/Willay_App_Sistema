@@ -216,7 +216,7 @@ export default function VincularTarjetas() {
                     clicable ? 'hover:bg-canvas active:bg-brand-faint cursor-pointer' : 'opacity-60 cursor-not-allowed',
                   )}
                 >
-                  <Avatar nombre={`${a.nombres} ${a.apellidos}`} />
+                  <Avatar nombre={`${a.nombres} ${a.apellidos}`} fotoUrl={a.fotoUrl} />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[13.5px] truncate">{a.nombres} {a.apellidos}</p>
                     {tieneTarjeta ? (
