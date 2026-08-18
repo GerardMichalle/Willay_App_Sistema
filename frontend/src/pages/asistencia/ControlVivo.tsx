@@ -7,6 +7,9 @@ import { getLecturasVivo, abrirCanalAsistencia, simularLectura, getPuntosAcceso 
 import { useAuth } from '../../context/AuthContext';
 import type { LecturaVivo, PuntoAccesoApi } from '../../types';
 
+/** import.meta.env.DEV es true solo con "npm run dev"; false en el build publicado. */
+const ES_DESARROLLO = import.meta.env.DEV;
+
 export default function ControlVivo() {
   const { usuario } = useAuth();
   const esProfesor = usuario?.rol === 'profesor';
@@ -86,7 +89,7 @@ export default function ControlVivo() {
             {conectado && <span className="w-1.5 h-1.5 rounded-full bg-ok dot-live" />}
           </span>
 
-          {esAdmin && (
+          {esAdmin && ES_DESARROLLO && (
             <Button variant="ghost" onClick={() => setSimAbierto(true)}>
               <Play size={14} /> Simular lectura
             </Button>
@@ -123,7 +126,7 @@ export default function ControlVivo() {
               <p className="text-[14px] font-semibold">Aún no hay lecturas registradas hoy</p>
               <p className="text-[12.5px] text-ink-3 mt-1.5 max-w-[420px] mx-auto">
                 Cuando un estudiante pase su tarjeta por el lector, aparecerá aquí al instante.
-                {esAdmin && ' Puedes probarlo con el botón "Simular lectura".'}
+                {esAdmin && ES_DESARROLLO && ' Puedes probarlo con el botón "Simular lectura".'}
               </p>
             </div>
           ) : (
@@ -151,52 +154,54 @@ export default function ControlVivo() {
         </div>
       </div>
 
-      {/* Simulador de lectura: reproduce exactamente lo que enviará el lector */}
-      <Modal
-        abierto={simAbierto}
-        titulo="Simular una lectura"
-        subtitulo="Reproduce la petición que enviará el lector físico"
-        onCerrar={() => setSimAbierto(false)}
-        pie={
-          <>
-            <Button variant="ghost" onClick={() => setSimAbierto(false)}>Cancelar</Button>
-            <Button onClick={enviarSimulacion} disabled={!tarjeta.trim() || !apiKey.trim() || enviando}>
-              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Enviar
-            </Button>
-          </>
-        }
-      >
-        {errorSim && (
-          <p className="mb-4 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorSim}</p>
-        )}
+      {/* Simulador de lectura: herramienta interna, solo en npm run dev */}
+      {ES_DESARROLLO && (
+        <Modal
+          abierto={simAbierto}
+          titulo="Simular una lectura"
+          subtitulo="Reproduce la petición que enviará el lector físico"
+          onCerrar={() => setSimAbierto(false)}
+          pie={
+            <>
+              <Button variant="ghost" onClick={() => setSimAbierto(false)}>Cancelar</Button>
+              <Button onClick={enviarSimulacion} disabled={!tarjeta.trim() || !apiKey.trim() || enviando}>
+                {enviando ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Enviar
+              </Button>
+            </>
+          }
+        >
+          {errorSim && (
+            <p className="mb-4 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorSim}</p>
+          )}
 
-        <Campo etiqueta="Código de tarjeta" requerido>
-          <input className={`${claseInput} font-mono`} value={tarjeta} autoFocus
-            onChange={e => setTarjeta(e.target.value.toUpperCase())} placeholder="RF-88213" />
-          <p className="text-[11px] text-ink-3 mt-1.5">
-            También acepta el código del estudiante (A-2041) o el contenido de su QR.
-          </p>
-        </Campo>
+          <Campo etiqueta="Código de tarjeta" requerido>
+            <input className={`${claseInput} font-mono`} value={tarjeta} autoFocus
+              onChange={e => setTarjeta(e.target.value.toUpperCase())} placeholder="RF-88213" />
+            <p className="text-[11px] text-ink-3 mt-1.5">
+              También acepta el código del estudiante (A-2041) o el contenido de su QR.
+            </p>
+          </Campo>
 
-        <Campo etiqueta="Credencial del lector" requerido>
-          <input className={`${claseInput} font-mono`} value={apiKey}
-            onChange={e => setApiKey(e.target.value)} placeholder="wly_…" />
-          <p className="text-[11px] text-ink-3 mt-1.5">
-            Se obtiene al registrar el lector en Configuración → Lectores. En el entorno de
-            demostración, la clave del lector precargado es <b className="font-mono">lector-demo-key</b>.
-          </p>
-        </Campo>
+          <Campo etiqueta="Credencial del lector" requerido>
+            <input className={`${claseInput} font-mono`} value={apiKey}
+              onChange={e => setApiKey(e.target.value)} placeholder="wly_…" />
+            <p className="text-[11px] text-ink-3 mt-1.5">
+              Se obtiene al registrar el lector en Configuración → Lectores. En el entorno de
+              demostración, la clave del lector precargado es <b className="font-mono">lector-demo-key</b>.
+            </p>
+          </Campo>
 
-        <div className="rounded-[10px] border border-line bg-canvas p-3.5">
-          <p className="label-mono mb-1.5">Petición equivalente</p>
-          <pre className="text-[10.5px] font-mono text-ink-2 whitespace-pre-wrap leading-relaxed">
+          <div className="rounded-[10px] border border-line bg-canvas p-3.5">
+            <p className="label-mono mb-1.5">Petición equivalente</p>
+            <pre className="text-[10.5px] font-mono text-ink-2 whitespace-pre-wrap leading-relaxed">
 {`POST /api/asistencia/lectura
 X-Api-Key: ${apiKey || '<credencial>'}
 
 { "tarjeta": "${tarjeta || 'RF-88213'}" }`}
-          </pre>
-        </div>
-      </Modal>
+            </pre>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

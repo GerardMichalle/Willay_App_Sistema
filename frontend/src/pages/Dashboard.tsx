@@ -6,33 +6,22 @@ import {
 import Topbar from '../components/Topbar';
 import GateTicker from '../components/GateTicker';
 import { StatCard, PanelHead, Avatar, Mono, Pill, cn } from '../components/ui';
-import { getStatsHoy, getEventos, getComunicados, getActividad, getAlumnos, getSetupEstado,
+import { getStatsHoy, getComunicadosApi, getLecturasVivo, getAlumnos, getSetupEstado,
   type DashboardStats } from '../services/api';
 import { Link } from 'react-router-dom';
-import type { SetupEstado } from '../types';
 import { useAuth } from '../context/AuthContext';
-import type { Evento, Comunicado, Actividad, Alumno } from '../types';
+import type { SetupEstado, ComunicadoApi, Alumno } from '../types';
 
-const TIPO_EVENTO: Record<Evento['tipo'], { txt: string; tone: 'brand' | 'info' | 'ok' | 'warn' }> = {
-  civico: { txt: 'Cívico', tone: 'brand' },
-  academico: { txt: 'Académico', tone: 'info' },
-  deportivo: { txt: 'Deportivo', tone: 'ok' },
-  reunion: { txt: 'Reunión', tone: 'warn' },
-};
-
-function fechaCorta(iso: string) {
-  const f = new Date(iso + 'T12:00:00');
-  return { dia: f.getDate(), mes: f.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '').toUpperCase() };
-}
+/** Un ítem de "Actividad reciente": combina lecturas y comunicados reales, ya sucedidos. */
+interface ActividadItem { id: string; texto: string; detalle: string; hora: string; ts: number }
 
 export default function Dashboard() {
   const { usuario } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [errorStats, setErrorStats] = useState<string | null>(null);
   const [setup, setSetup] = useState<SetupEstado | null>(null);
-  const [eventos, setEventos] = useState<Evento[]>([]);
-  const [comunicados, setComunicados] = useState<Comunicado[]>([]);
-  const [actividad, setActividad] = useState<Actividad[]>([]);
+  const [comunicados, setComunicados] = useState<ComunicadoApi[]>([]);
+  const [actividad, setActividad] = useState<ActividadItem[]>([]);
   const [cumples, setCumples] = useState<Alumno[]>([]);
 
   useEffect(() => {
@@ -40,9 +29,45 @@ export default function Dashboard() {
       .then(setStats)
       .catch(e => setErrorStats(e instanceof Error ? e.message : 'No se pudieron cargar los indicadores'));
     getSetupEstado().then(setSetup).catch(() => setSetup(null));
-    getEventos().then(setEventos);
-    getComunicados().then(c => setComunicados(c.slice(0, 3)));
-    getActividad().then(setActividad);
+
+    Promise.all([
+      getLecturasVivo().catch(() => []),
+      getComunicadosApi().catch(() => []),
+    ]).then(([lecturas, todosComunicados]) => {
+      const publicados = todosComunicados.filter(c => c.publicado);
+      setComunicados(publicados.slice(0, 3));
+
+      const hoy = new Date();
+      const deLecturas: ActividadItem[] = lecturas.slice(0, 8).map(l => {
+        const [h, m] = l.hora.split(':').map(Number);
+        const ts = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), h, m).getTime();
+        return {
+          id: `l-${l.id}`,
+          texto: `${l.nombre} registró ${l.tipo === 'ENTRADA' ? 'entrada' : 'salida'}`,
+          detalle: l.puntoAcceso,
+          hora: l.hora,
+          ts,
+        };
+      });
+      // publicadoEn solo trae fecha, no hora exacta (p. ej. "18 Aug 2026"): se ordena
+      // al final de ese día para no enterrarlo bajo lecturas de esa misma fecha.
+      const deComunicados: ActividadItem[] = publicados
+        .filter(c => c.publicadoEn)
+        .slice(0, 5)
+        .map(c => {
+          const fin = new Date(c.publicadoEn as string);
+          fin.setHours(23, 59, 59, 999);
+          return {
+            id: `c-${c.id}`,
+            texto: `${c.autor} publicó un comunicado`,
+            detalle: c.titulo,
+            hora: c.publicadoEn as string,
+            ts: fin.getTime(),
+          };
+        });
+      setActividad([...deLecturas, ...deComunicados].sort((a, b) => b.ts - a.ts).slice(0, 6));
+    });
+
     getAlumnos()
       .then(al => {
         const hoy = new Date();
@@ -179,25 +204,8 @@ export default function Dashboard() {
 
           <div className="card p-6">
             <PanelHead title="Próximos eventos" sub="Calendario institucional" right={<CalendarDays size={16} className="text-ink-3" />} />
-            <div className="space-y-1">
-              {eventos.map(e => {
-                const f = fechaCorta(e.fecha);
-                const t = TIPO_EVENTO[e.tipo];
-                return (
-                  <div key={e.id} className="flex items-center gap-3.5 rounded-[10px] px-2 py-2.5 -mx-2 hover:bg-canvas transition-colors cursor-pointer group">
-                    <div className="w-11 shrink-0 text-center rounded-[10px] border border-line py-1.5 bg-paper">
-                      <div className="text-[16px] font-bold leading-none">{f.dia}</div>
-                      <div className="label-mono !text-[9px] mt-0.5">{f.mes}</div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] font-semibold truncate">{e.titulo}</p>
-                      <Mono className="!text-[10.5px]">{e.hora} · {e.lugar}</Mono>
-                    </div>
-                    <Pill tone={t.tone}>{t.txt}</Pill>
-                  </div>
-                );
-              })}
-            </div>
+            {/* TODO: módulo de eventos pendiente de diseño (tabla, permisos de creación). */}
+            <p className="text-[12.5px] text-ink-3 py-6 text-center">Aún no hay eventos programados.</p>
           </div>
         </div>
 
@@ -205,20 +213,28 @@ export default function Dashboard() {
         <div className="grid xl:grid-cols-3 gap-4">
           <div className="card p-6">
             <PanelHead title="Comunicados recientes" right={<Megaphone size={16} className="text-ink-3" />} />
-            <div className="space-y-4">
-              {comunicados.map(c => (
-                <div key={c.id} className="group cursor-pointer">
-                  <p className="text-[12.5px] font-semibold group-hover:text-brand transition-colors">{c.titulo}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <Mono className="!text-[10.5px]">{c.autor} · {fechaCorta(c.fecha).dia} {fechaCorta(c.fecha).mes}</Mono>
-                    <span className="text-[11px] text-ink-3">{c.leidoPor}/{c.totalDestinatarios} leídos</span>
+            {comunicados.length === 0 ? (
+              <p className="text-[12.5px] text-ink-3 py-6 text-center">Aún no hay comunicados publicados.</p>
+            ) : (
+              <div className="space-y-4">
+                {comunicados.map(c => (
+                  <div key={c.id} className="group cursor-pointer">
+                    <p className="text-[12.5px] font-semibold group-hover:text-brand transition-colors">{c.titulo}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <Mono className="!text-[10.5px]">{c.autor} · {c.publicadoEn}</Mono>
+                      {c.destinatarios > 0 && (
+                        <span className="text-[11px] text-ink-3">{c.lecturas}/{c.destinatarios} leídos</span>
+                      )}
+                    </div>
+                    {c.destinatarios > 0 && (
+                      <div className="mt-1.5 h-1 rounded-full bg-canvas overflow-hidden">
+                        <div className="h-full bg-brand/70 rounded-full" style={{ width: `${Math.min(100, (c.lecturas / c.destinatarios) * 100)}%` }} />
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-1.5 h-1 rounded-full bg-canvas overflow-hidden">
-                    <div className="h-full bg-brand/70 rounded-full" style={{ width: `${(c.leidoPor / c.totalDestinatarios) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card p-6">
@@ -268,21 +284,25 @@ export default function Dashboard() {
         {/* ── Actividad reciente ── */}
         <div className="card p-6">
           <PanelHead title="Actividad reciente" right={<Bell size={16} className="text-ink-3" />} />
-          <div>
-            {actividad.map((a, i) => (
-              <div key={a.id} className={cn('flex items-center gap-3.5 py-3 cursor-pointer group', i > 0 && 'border-t border-line')}>
-                <Avatar nombre={a.texto} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12.5px] truncate">
-                    <b className="font-semibold">{a.texto.split(' ').slice(0, 2).join(' ')}</b>{' '}
-                    {a.texto.split(' ').slice(2).join(' ')}
-                  </p>
-                  <Mono className="!text-[10.5px]">{a.detalle} · {a.hora}</Mono>
+          {actividad.length === 0 ? (
+            <p className="text-[12.5px] text-ink-3 py-6 text-center">Aún no hay actividad reciente.</p>
+          ) : (
+            <div>
+              {actividad.map((a, i) => (
+                <div key={a.id} className={cn('flex items-center gap-3.5 py-3 cursor-pointer group', i > 0 && 'border-t border-line')}>
+                  <Avatar nombre={a.texto} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12.5px] truncate">
+                      <b className="font-semibold">{a.texto.split(' ').slice(0, 2).join(' ')}</b>{' '}
+                      {a.texto.split(' ').slice(2).join(' ')}
+                    </p>
+                    <Mono className="!text-[10.5px]">{a.detalle} · {a.hora}</Mono>
+                  </div>
+                  <ChevronRight size={15} className="text-ink-3 group-hover:text-ink group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <ChevronRight size={15} className="text-ink-3 group-hover:text-ink group-hover:translate-x-0.5 transition-all" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

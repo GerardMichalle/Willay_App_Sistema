@@ -10,14 +10,13 @@ npm install
 npm run dev      # abre http://localhost:5173
 ```
 
-Usuario demo: cualquier correo/contraseña — elige el rol en la pantalla de login.
+Requiere el backend Spring Boot corriendo en `:8080` (`docker compose up` en
+`backend/`) para iniciar sesión y cargar datos reales.
 
 ## Estructura
 
-- `src/services/api.ts` — ÚNICA capa de datos. Hoy devuelve mocks; cada función
-  tiene documentado su endpoint Spring Boot (TODO). Cambiar aquí = backend real
-  sin tocar ninguna vista.
-- `src/data/mock.ts` — datos de demostración.
+- `src/services/api.ts` — ÚNICA capa de datos: habla directo con el backend
+  Spring Boot. Ninguna pantalla hace `fetch` por su cuenta.
 - `src/components/ui.tsx` — design system (cards, badges, tablas, avatares).
 - `src/index.css` — tokens de color y tipografía (@theme de Tailwind v4).
 - `src/pages/**` — un archivo por módulo.

@@ -1,25 +1,14 @@
 /**
- * Capa de servicios de Willay.
- *
- * HOY: devuelve datos mock para la demo del frontend.
- * MAÑANA: reemplazar el cuerpo de cada función por un fetch() al backend
- * Spring Boot (proxy ya configurado: /api → http://localhost:8080).
- *
- * Ninguna página importa datos mock directamente: todas pasan por aquí,
- * así el cambio a backend real no toca ninguna vista.
+ * Capa de servicios de Willay: única capa de datos del frontend.
+ * Cada función habla directamente con el backend Spring Boot
+ * (proxy de Vite: /api → http://localhost:8080).
  */
-import {
-  LECTURAS_INICIALES, EVENTOS,
-  COMUNICADOS, ACTIVIDAD, MATRICULAS, CONDUCTA,
-} from '../data/mock';
 import type {
-  Rol, Usuario, LecturaRfid, Alumno, Aula, DocenteApi, ApoderadoApi,
+  Rol, Usuario, Alumno, Aula, DocenteApi, ApoderadoApi,
   ColegioApi, SetupEstado, Importacion, MatriculaResultado,
   LecturaVivo, NotificacionApi, ComunicadoApi, ConductaApi,
   LibretaApi, CursoApi, UsuarioAdminApi, PuntoAccesoApi,
 } from '../types';
-
-const delay = (ms = 220) => new Promise((r) => setTimeout(r, ms));
 
 // ── Conexión real con el backend (Spring Boot en :8080, proxy de Vite) ──
 const CLAVE_SESION = 'willay-sesion';
@@ -229,12 +218,6 @@ export async function getAulas(): Promise<Aula[]> {
   return http<Aula[]>('/api/aulas', undefined, true);
 }
 
-// ── Asistencia ──────────────────────────────────────────────────────
-// TODO: GET /api/asistencia/lecturas/hoy  (histórico)
-//       WebSocket/SSE /api/asistencia/stream  (tiempo real desde el lector)
-//       El backend filtra por aula cuando el rol es docente.
-export async function getLecturasHoy(): Promise<LecturaRfid[]> { await delay(); return LECTURAS_INICIALES; }
-
 // ── Dashboard ───────────────────────────────────────────────────────
 export interface EntradasDia { fecha: string; diaCorto: string; entradas: number }
 
@@ -258,19 +241,6 @@ export interface DashboardStats {
 export async function getStatsHoy(): Promise<DashboardStats> {
   return http<DashboardStats>('/api/dashboard/stats', undefined, true);
 }
-
-export async function getActividad() { await delay(); return ACTIVIDAD; }
-
-// ── Personas ────────────────────────────────────────────────────────
-
-
-// ── Académico ───────────────────────────────────────────────────────
-export async function getMatriculas() { await delay(); return MATRICULAS; }    // TODO: GET /api/matriculas
-export async function getConducta() { await delay(); return CONDUCTA; }        // TODO: GET /api/conducta
-
-// ── Comunicación / eventos ──────────────────────────────────────────
-export async function getEventos() { await delay(); return EVENTOS; }          // TODO: GET /api/eventos
-export async function getComunicados() { await delay(); return COMUNICADOS; }  // TODO: GET /api/comunicados
 
 // ── Cursos gratuitos (catálogo global del proveedor) ────────────────
 export interface RecursoApi {
