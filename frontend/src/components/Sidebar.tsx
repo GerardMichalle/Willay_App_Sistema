@@ -61,7 +61,7 @@ const NAV: Group[] = [
   },
   // ── Docente ───────────────────────────────────────────────────────
   {
-    label: 'Mi aula · 5° A',
+    label: 'Mi aula',
     roles: ['profesor'],
     items: [
       { to: '/asistencia/vivo', label: 'Asistencia en vivo', icon: <Radio size={IC} />, badge: 'EN VIVO' },

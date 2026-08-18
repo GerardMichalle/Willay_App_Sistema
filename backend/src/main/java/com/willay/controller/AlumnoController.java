@@ -1,6 +1,8 @@
 package com.willay.controller;
 
 import com.willay.dto.AlumnoDto;
+import com.willay.dto.CrearCuentaAlumnoRequest;
+import com.willay.dto.CuentaCreadaDto;
 import com.willay.dto.GuardarAlumnoRequest;
 import com.willay.dto.PaginaDto;
 import com.willay.dto.VincularTarjetaRequest;
@@ -78,5 +80,13 @@ public class AlumnoController {
     public AlumnoDto vincularTarjeta(@PathVariable Long id, @Valid @RequestBody VincularTarjetaRequest req,
                                      HttpServletRequest http) {
         return alumnoService.asignarTarjetaRapida(CurrentUser.get(), id, req.uid(), http.getRemoteAddr());
+    }
+
+    @PostMapping("/{id}/cuenta")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Crea la cuenta web de un estudiante ya matriculado que todavía no la tiene")
+    public CuentaCreadaDto crearCuenta(@PathVariable Long id, @Valid @RequestBody CrearCuentaAlumnoRequest req,
+                                       HttpServletRequest http) {
+        return alumnoService.crearCuentaAlumno(CurrentUser.get(), id, req.correo(), req.dni(), http.getRemoteAddr());
     }
 }

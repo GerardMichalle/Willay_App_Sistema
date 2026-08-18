@@ -3,6 +3,7 @@ package com.willay.service;
 import com.willay.audit.AccionAuditoria;
 import com.willay.audit.AuditoriaService;
 import com.willay.dto.AlumnoDto;
+import com.willay.dto.CuentaCreadaDto;
 import com.willay.dto.GuardarAlumnoRequest;
 import com.willay.dto.PaginaDto;
 import com.willay.entity.*;
@@ -48,6 +49,8 @@ public class AlumnoService {
     private final AlumnoApoderadoRepository alumnoApoderadoRepository;
     private final DocenteAulaRepository docenteAulaRepository;
     private final ColegioRepository colegioRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final CodigoActivacionService codigoActivacionService;
     private final AuditoriaService auditoria;
 
     // ── Lectura ──────────────────────────────────────────────────────
@@ -186,6 +189,57 @@ public class AlumnoService {
         return enriquecedor(List.of(alumno)).apply(alumno);
     }
 
+    /**
+     * Crea la cuenta web de un estudiante ya matriculado que todavía no la
+     * tiene (típicamente: un colegio que en primaria no le da cuenta al
+     * alumno y en secundaria decide activarla). Si al estudiante le falta
+     * el DNI, este es el único momento en que se le puede completar aquí —
+     * el resto de la ficha se edita desde el formulario normal.
+     */
+    @Transactional
+    public CuentaCreadaDto crearCuentaAlumno(UsuarioPrincipal quien, Long id, String correo, String dniNuevo, String ip) {
+        Long colegioId = quien.getColegioId();
+        Alumno alumno = buscarDelColegio(colegioId, id);
+
+        if (alumno.getUsuario() != null) {
+            throw new BusinessException("Este estudiante ya tiene una cuenta web");
+        }
+
+        if (alumno.getDni() == null || alumno.getDni().isBlank()) {
+            String dni = dniNuevo == null ? null : dniNuevo.trim();
+            if (dni == null || dni.isBlank()) {
+                throw new BusinessException("Debes indicar el DNI del estudiante para crear su cuenta");
+            }
+            if (alumnoRepository.existsByColegioIdAndDni(colegioId, dni)) {
+                throw new BusinessException("Ya existe un estudiante con el DNI " + dni);
+            }
+            alumno.setDni(dni);
+        }
+
+        String correoLimpio = correo.trim().toLowerCase();
+        if (usuarioRepository.existsByCorreoIgnoreCase(correoLimpio)) {
+            throw new BusinessException("Ya existe una cuenta con el correo " + correoLimpio);
+        }
+
+        Usuario cuenta = new Usuario();
+        cuenta.setColegio(alumno.getColegio());
+        cuenta.setCorreo(correoLimpio);
+        cuenta.setRol(Rol.ALUMNO);
+        cuenta.setNombres(alumno.getNombres());
+        cuenta.setApellidos(alumno.getApellidos());
+        cuenta.setDni(alumno.getDni());
+        cuenta.setEstado(EstadoUsuario.PENDIENTE);
+        usuarioRepository.save(cuenta);
+        alumno.setUsuario(cuenta);
+
+        String codigo = codigoActivacionService.emitir(cuenta, alumno.getDni()).getCodigo();
+
+        auditoria.registrar(AccionAuditoria.CUENTA_ALUMNO_CREADA, colegioId, quien.getId(),
+                alumno.getCodigo() + " · " + alumno.nombreCompleto(), ip);
+
+        return new CuentaCreadaDto(codigo);
+    }
+
     // ── Apoyo ────────────────────────────────────────────────────────
 
     private void aplicar(Alumno alumno, GuardarAlumnoRequest req, Aula aula) {
@@ -281,7 +335,8 @@ public class AlumnoService {
                     ap != null ? ap.getTelefono() : null,
                     asis != null && asis.getHoraEntrada() != null ? asis.getHoraEntrada().format(HORA) : null,
                     asis != null && asis.getHoraSalida() != null ? asis.getHoraSalida().format(HORA) : null,
-                    asis != null ? asis.getEstado() : "SIN_REGISTRO");
+                    asis != null ? asis.getEstado() : "SIN_REGISTRO",
+                    alumno.getUsuario() != null ? alumno.getUsuario().getEstado().name() : null);
         };
     }
 }

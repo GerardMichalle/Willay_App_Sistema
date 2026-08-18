@@ -12,12 +12,8 @@ export interface Usuario {
   iniciales: string;
   /** Ruta cruda del archivo protegido ("/api/archivos/{uuid}"), no una URL directa. */
   fotoUrl?: string | null;
-  /** Aula asignada (solo docentes) */
+  /** Aula asignada (solo docentes). No poblado todavía: pendiente de enriquecer /api/auth/yo. */
   aula?: string;
-  /** Código del alumno (solo rol alumno) */
-  codigoAlumno?: string;
-  /** Código del hijo vinculado (solo rol apoderado) */
-  hijoCodigo?: string;
 }
 
 export interface Alumno {
@@ -39,6 +35,8 @@ export interface Alumno {
   aulaId?: number | null;
   estado?: string;
   fotoUrl?: string | null;
+  /** null = el estudiante no tiene cuenta web; si no, ACTIVO/PENDIENTE/SUSPENDIDO. */
+  estadoCuenta?: string | null;
 }
 
 export interface Aula {

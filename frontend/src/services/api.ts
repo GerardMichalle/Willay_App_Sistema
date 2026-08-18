@@ -120,11 +120,6 @@ function mapearUsuario(u: UsuarioApi): Usuario {
     sede: 'Sede Central',
     iniciales: (u.nombres[0] ?? '') + (u.apellidos[0] ?? ''),
     fotoUrl: u.fotoUrl,
-    // TODO Spring Boot (/api/auth/yo enriquecido): aula y vínculos reales.
-    // Mientras tanto, valores del entorno demo para los filtros de pantalla:
-    aula: rol === 'profesor' ? '5° A' : undefined,
-    codigoAlumno: rol === 'alumno' ? 'A-2041' : undefined,
-    hijoCodigo: rol === 'apoderado' ? 'A-2041' : undefined,
   };
 }
 
@@ -166,7 +161,7 @@ interface AlumnoApi {
   estado: string; aulaId: number | null; grado: string | null; seccion: string | null;
   nivel: string | null; tarjetaRfid: string | null; apoderado: string | null;
   telefonoApoderado: string | null; entradaHoy: string | null; salidaHoy: string | null;
-  estadoHoy: string;
+  estadoHoy: string; estadoCuenta: string | null;
 }
 
 interface PaginaApi<T> {
@@ -197,6 +192,7 @@ function mapearAlumno(a: AlumnoApi): Alumno {
     aulaId: a.aulaId,
     estado: a.estado,
     fotoUrl: a.fotoUrl,
+    estadoCuenta: a.estadoCuenta,
   };
 }
 
@@ -247,6 +243,14 @@ export async function retirarAlumno(id: string): Promise<void> {
 export async function vincularTarjetaAlumno(id: string, uid: string): Promise<Alumno> {
   const r = await http<AlumnoApi>(`/api/alumnos/${id}/tarjeta`, { uid }, true);
   return mapearAlumno(r);
+}
+
+/**
+ * POST /api/alumnos/{id}/cuenta — crea la cuenta web de un estudiante ya
+ * matriculado que no la tiene. dni solo hace falta si aún no lo tiene.
+ */
+export async function crearCuentaAlumno(id: string, correo: string, dni?: string | null): Promise<{ codigoActivacion: string }> {
+  return http<{ codigoActivacion: string }>(`/api/alumnos/${id}/cuenta`, { correo, dni: dni || null }, true);
 }
 
 // ── Aulas ───────────────────────────────────────────────────────────

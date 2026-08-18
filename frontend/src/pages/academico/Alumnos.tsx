@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Plus, CreditCard, ArrowRight, Loader2, Pencil, UserMinus, Search } from 'lucide-react';
+import { Download, Plus, CreditCard, ArrowRight, Loader2, Pencil, UserMinus, Search, KeyRound, CheckCircle2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
-import { Table, Tr, Td, Avatar, EstadoBadge, Mono, FilterTabs, Button } from '../../components/ui';
+import { Table, Tr, Td, Avatar, EstadoBadge, Mono, Pill, FilterTabs, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
-import { getAlumnos, getAulas, crearAlumno, actualizarAlumno, retirarAlumno, exportarAlumnos, type DatosAlumno } from '../../services/api';
+import {
+  getAlumnos, getAulas, crearAlumno, actualizarAlumno, retirarAlumno, exportarAlumnos,
+  crearCuentaAlumno, type DatosAlumno,
+} from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import type { Alumno, Aula } from '../../types';
 
@@ -27,6 +30,13 @@ export default function Alumnos() {
   const [datos, setDatos] = useState<DatosAlumno>(VACIO);
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
+
+  // Crear cuenta web para un alumno ya matriculado que no la tiene
+  const [correoCuenta, setCorreoCuenta] = useState('');
+  const [dniCuenta, setDniCuenta] = useState('');
+  const [creandoCuenta, setCreandoCuenta] = useState(false);
+  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
   const cargar = useCallback(async (q?: string) => {
     setCargando(true);
@@ -52,6 +62,7 @@ export default function Alumnos() {
     setEditando(null);
     setDatos({ ...VACIO, aulaId: aulas[0]?.id ?? 0 });
     setErrorForm(null);
+    reiniciarCuenta();
     setAbierto(true);
   }
 
@@ -66,7 +77,30 @@ export default function Alumnos() {
       tarjetaRfid: a.tarjetaRfid ?? '',
     });
     setErrorForm(null);
+    reiniciarCuenta();
     setAbierto(true);
+  }
+
+  function reiniciarCuenta() {
+    setCorreoCuenta('');
+    setDniCuenta('');
+    setErrorCuenta(null);
+    setCodigoGenerado(null);
+  }
+
+  async function crearCuentaWeb() {
+    if (!editando) return;
+    setErrorCuenta(null);
+    setCreandoCuenta(true);
+    try {
+      const r = await crearCuentaAlumno(editando.id, correoCuenta.trim(), editando.dni ? null : dniCuenta.trim());
+      setCodigoGenerado(r.codigoActivacion);
+      await cargar(busqueda || undefined);
+    } catch (e) {
+      setErrorCuenta(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
+    } finally {
+      setCreandoCuenta(false);
+    }
   }
 
   async function guardar() {
@@ -316,6 +350,61 @@ export default function Alumnos() {
             Opcional. Puedes vincularla después, cuando entregues la tarjeta física.
           </p>
         </Campo>
+
+        {/* ── Cuenta web: solo tiene sentido para un alumno ya matriculado ── */}
+        {editando && (
+          <div className="border-t border-line pt-4 mt-1">
+            <p className="label-mono mb-3">Cuenta web del estudiante</p>
+
+            {editando.estadoCuenta ? (
+              <div className="flex items-center gap-2.5">
+                <Pill tone={editando.estadoCuenta === 'ACTIVO' ? 'ok' : editando.estadoCuenta === 'SUSPENDIDO' ? 'bad' : 'warn'}>
+                  {editando.estadoCuenta === 'ACTIVO' ? 'Activa'
+                    : editando.estadoCuenta === 'SUSPENDIDO' ? 'Suspendida' : 'Pendiente de activar'}
+                </Pill>
+                {editando.estadoCuenta === 'PENDIENTE' && (
+                  <p className="text-[11.5px] text-ink-3">Gestiona el código de activación desde Sistema → Usuarios.</p>
+                )}
+              </div>
+            ) : codigoGenerado ? (
+              <div className="rounded-[10px] border border-line bg-canvas p-3.5 flex items-center justify-between gap-3 flex-wrap">
+                <span className="flex items-center gap-2 text-ok text-[12.5px] font-semibold">
+                  <CheckCircle2 size={16} /> Cuenta creada
+                </span>
+                <Mono className="font-bold !text-brand !text-[16px] tracking-widest">{codigoGenerado}</Mono>
+              </div>
+            ) : (
+              <>
+                {errorCuenta && (
+                  <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorCuenta}</p>
+                )}
+                <div className="grid sm:grid-cols-2 gap-x-4">
+                  <Campo etiqueta="Correo del estudiante" requerido>
+                    <input type="email" className={claseInput} value={correoCuenta}
+                      onChange={e => setCorreoCuenta(e.target.value)} placeholder="valeria@gmail.com" />
+                  </Campo>
+                  {!editando.dni && (
+                    <Campo etiqueta="DNI del estudiante" requerido>
+                      <input className={`${claseInput} font-mono`} inputMode="numeric" value={dniCuenta}
+                        onChange={e => setDniCuenta(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        placeholder="8 dígitos" />
+                    </Campo>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-[11px] text-ink-3 max-w-[280px]">
+                    Se emitirá un código de activación de un solo uso para que el estudiante cree su contraseña.
+                  </p>
+                  <Button variant="ghost" onClick={crearCuentaWeb}
+                    disabled={creandoCuenta || !correoCuenta.trim() || (!editando.dni && !/^\d{8}$/.test(dniCuenta))}>
+                    {creandoCuenta ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                    Crear cuenta
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </Modal>
     </>
   );

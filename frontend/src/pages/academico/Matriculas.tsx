@@ -406,6 +406,23 @@ export default function Matriculas() {
                   placeholder="RF-88213" />
               </Campo>
             </div>
+            <div className="grid sm:grid-cols-2 gap-x-4 items-center">
+              <Campo etiqueta="Correo del estudiante">
+                <input type="email" className={claseInput} value={datos.alumno.correo ?? ''}
+                  onChange={e => setDatos({ ...datos, alumno: { ...datos.alumno, correo: e.target.value } })}
+                  placeholder="valeria@gmail.com" />
+              </Campo>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" checked={datos.alumno.crearCuenta}
+                  onChange={e => setDatos({ ...datos, alumno: { ...datos.alumno, crearCuenta: e.target.checked } })}
+                  className="w-4 h-4 rounded border-line accent-brand cursor-pointer" />
+                <span className="text-[12.5px] font-medium text-ink-2">Crear cuenta web para el estudiante</span>
+              </label>
+            </div>
+            <p className="text-[11.5px] text-ink-3 -mt-1">
+              Con correo, DNI y esta casilla marcada se crea su cuenta web y se emite su código de activación.
+              Sin ella, el estudiante queda registrado sin cuenta propia (puedes activarla después).
+            </p>
 
             <div className="border-t border-line pt-4 mt-1">
               <p className="label-mono mb-3">Datos del apoderado</p>

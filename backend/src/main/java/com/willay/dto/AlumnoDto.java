@@ -21,5 +21,7 @@ public record AlumnoDto(
         String telefonoApoderado,
         String entradaHoy,
         String salidaHoy,
-        String estadoHoy
+        String estadoHoy,
+        /** null si el estudiante no tiene cuenta web; si no, ACTIVO/PENDIENTE/SUSPENDIDO. */
+        String estadoCuenta
 ) {}
