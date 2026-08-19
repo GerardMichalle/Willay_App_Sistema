@@ -69,7 +69,7 @@ public class AulaService {
         Aula aula = aulaRepository.findByIdAndColegioId(id, colegioId)
                 .orElseThrow(() -> new NotFoundException("Aula no encontrada"));
 
-        long alumnos = alumnoRepository.findByAulaIdOrderByApellidosAsc(id).size();
+        long alumnos = alumnoRepository.countByAulaIdAndEstado(id, "MATRICULADO");
         if (alumnos > 0) {
             throw new BusinessException(
                     "No se puede editar: el aula tiene " + alumnos + " estudiantes matriculados. "
@@ -89,7 +89,7 @@ public class AulaService {
         Aula aula = aulaRepository.findByIdAndColegioId(id, colegioId)
                 .orElseThrow(() -> new NotFoundException("Aula no encontrada"));
 
-        long alumnos = alumnoRepository.findByAulaIdOrderByApellidosAsc(id).size();
+        long alumnos = alumnoRepository.countByAulaIdAndEstado(id, "MATRICULADO");
         if (alumnos > 0) {
             throw new BusinessException(
                     "No se puede desactivar: el aula tiene " + alumnos + " estudiantes. Reasígnalos primero.");

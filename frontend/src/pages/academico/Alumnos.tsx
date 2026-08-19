@@ -135,6 +135,7 @@ export default function Alumnos() {
   }
 
   const filtrados = alumnos.filter(a => {
+    if (a.estado === 'RETIRADO') return false;
     if (tab === 'Puntuales') return a.estadoHoy === 'puntual';
     if (tab === 'Tardanzas') return a.estadoHoy === 'tardanza';
     if (tab === 'Ausentes') return a.estadoHoy === 'ausente';

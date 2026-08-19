@@ -1,30 +1,46 @@
 package com.willay.service;
 
 import com.willay.entity.Usuario;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 /**
  * Envío de correos transaccionales (código de activación, recuperación de
- * contraseña). Es "mejor esfuerzo": si el correo falla (SMTP mal configurado,
- * sin conexión, credencial vencida) se registra en el log y la operación que
- * lo disparó sigue igual — la familia siempre puede ver el código en pantalla
+ * contraseña) vía la API HTTPS de Resend (https://resend.com) — no SMTP: los
+ * proveedores de nube (DigitalOcean incluido) bloquean por defecto los
+ * puertos de correo (25/465/587) en servidores nuevos contra el spam, así
+ * que un SMTP directo a Gmail nunca conecta desde el VPS. La API va por 443,
+ * el mismo puerto que ya usa todo lo demás — nunca bloqueado.
+ *
+ * Es "mejor esfuerzo": si el envío falla (sin clave configurada, sin
+ * internet, clave inválida) se registra en el log y la operación que lo
+ * disparó sigue igual — la familia siempre puede ver el código en pantalla
  * como hasta ahora. Un correo caído nunca debe bloquear una matrícula.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CorreoService {
 
-    private final JavaMailSender mailSender;
+    private static final String ENDPOINT = "https://api.resend.com/emails";
 
-    @Value("${willay.correo.remitente:Willay <willaysoporte@gmail.com>}")
+    private final RestClient restClient;
+
+    public CorreoService(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
+    }
+
+    @Value("${willay.correo.resend-api-key:}")
+    private String apiKey;
+
+    @Value("${willay.correo.remitente:Willay <onboarding@resend.dev>}")
     private String remitente;
+
+    private record ResendRequest(String from, List<String> to, String subject, String html) {}
 
     public void enviarCodigoActivacion(Usuario usuario, String codigo, int diasVigencia) {
         String colegio = usuario.getColegio() != null ? usuario.getColegio().getNombre() : "tu colegio";
@@ -50,14 +66,18 @@ public class CorreoService {
 
     private void enviar(String destinatario, String asunto, String html) {
         if (destinatario == null || destinatario.isBlank()) return;
+        if (apiKey == null || apiKey.isBlank()) {
+            log.info("RESEND_API_KEY no configurada: correo a {} omitido (\"{}\")", destinatario, asunto);
+            return;
+        }
         try {
-            MimeMessage mensaje = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mensaje, "UTF-8");
-            helper.setFrom(remitente);
-            helper.setTo(destinatario);
-            helper.setSubject(asunto);
-            helper.setText(html, true);
-            mailSender.send(mensaje);
+            restClient.post()
+                    .uri(ENDPOINT)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ResendRequest(remitente, List.of(destinatario), asunto, html))
+                    .retrieve()
+                    .toBodilessEntity();
         } catch (Exception e) {
             log.warn("No se pudo enviar el correo a {}: {}", destinatario, e.getMessage());
         }

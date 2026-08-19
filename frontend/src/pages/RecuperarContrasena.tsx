@@ -11,9 +11,9 @@ import { solicitarRecuperacion, completarRecuperacion } from '../services/api';
 type Paso = 'correo' | 'codigo' | 'listo';
 
 /**
- * "Olvidé mi contraseña": pide el correo, envía un código de 6 dígitos por
+ * "Olvidé mi contraseña" pide el correo, envía un código de 6 dígitos por
  * email, y con ese código + la contraseña nueva se restablece el acceso.
- * Nunca revela si un correo existe o no en el sistema (mismo mensaje siempre).
+ * Nunca revela si un correo existe o no en el sistema (mismo mensaje siempre)
  */
 export default function RecuperarContrasena() {
   const nav = useNavigate();
@@ -59,8 +59,8 @@ export default function RecuperarContrasena() {
       await solicitarRecuperacion(correo.trim());
       setPaso('codigo');
     } catch (e) {
-      // Aun con error de red mostramos el mismo paso: nunca confirmamos ni negamos
-      // si el correo existe desde este formulario.
+      // Aun con error de red mostramos el mismo paso nunca confirmamos ni negamos
+      // si el correo existe desde este formulario
       setError(e instanceof Error ? e.message : 'No se pudo enviar la solicitud');
     } finally {
       setEnviando(false);

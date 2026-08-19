@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, KeyRound, Mail, Phone, Users, RefreshCw } from 'lucide-react';
+import { Loader2, KeyRound, Mail, Phone, Users, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 import Topbar from '../../components/Topbar';
-import { Table, Tr, Td, Avatar, Mono, Pill } from '../../components/ui';
-import { getApoderados, reenviarCodigoUsuario } from '../../services/api';
+import { Table, Tr, Td, Avatar, Mono, Pill, Button } from '../../components/ui';
+import Modal, { Campo, claseInput } from '../../components/Modal';
+import { getApoderados, reenviarCodigoUsuario, crearCuentaApoderado, eliminarApoderado } from '../../services/api';
 import type { ApoderadoApi } from '../../types';
 
 export default function Apoderados() {
   const [apoderados, setApoderados] = useState<ApoderadoApi[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [creandoPara, setCreandoPara] = useState<ApoderadoApi | null>(null);
+  const [correoCuenta, setCorreoCuenta] = useState('');
+  const [guardandoCuenta, setGuardandoCuenta] = useState(false);
+  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     getApoderados()
@@ -27,6 +34,38 @@ export default function Apoderados() {
       alert(`Nuevo código de activación para ${a.nombres}: ${actualizado.codigoActivacion}`);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+    }
+  }
+
+  function abrirCrearCuenta(a: ApoderadoApi) {
+    setCreandoPara(a);
+    setCorreoCuenta('');
+    setErrorCuenta(null);
+    setCodigoGenerado(null);
+  }
+
+  async function confirmarCrearCuenta() {
+    if (!creandoPara) return;
+    setErrorCuenta(null);
+    setGuardandoCuenta(true);
+    try {
+      const r = await crearCuentaApoderado(creandoPara.id, correoCuenta.trim());
+      setCodigoGenerado(r.codigoActivacion);
+      await cargar();
+    } catch (e) {
+      setErrorCuenta(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
+    } finally {
+      setGuardandoCuenta(false);
+    }
+  }
+
+  async function eliminar(a: ApoderadoApi) {
+    if (!confirm(`¿Eliminar a ${a.nombres} ${a.apellidos}?\n\nSus hijos vinculados no se ven afectados, solo quedan sin este apoderado.`)) return;
+    try {
+      await eliminarApoderado(a.id);
+      await cargar();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 
@@ -56,7 +95,7 @@ export default function Apoderados() {
             </p>
           </div>
         ) : (
-          <Table head={['Apoderado', 'DNI', 'Contacto', 'Hijos vinculados', 'Cuenta web']}>
+          <Table head={['Apoderado', 'DNI', 'Contacto', 'Hijos vinculados', 'Cuenta web', '']}>
             {apoderados.map(a => (
               <Tr key={a.id}>
                 <Td>
@@ -109,11 +148,67 @@ export default function Apoderados() {
                     </div>
                   )}
                 </Td>
+                <Td>
+                  <div className="flex gap-1 justify-end">
+                    {a.estadoCuenta === 'SIN_CUENTA' && (
+                      <button onClick={() => abrirCrearCuenta(a)} title="Crear cuenta web"
+                        className="grid place-items-center w-8 h-8 rounded-[9px] text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer">
+                        <UserPlus size={14} />
+                      </button>
+                    )}
+                    {a.estadoCuenta !== 'ACTIVO' && (
+                      <button onClick={() => eliminar(a)} title="Eliminar"
+                        className="grid place-items-center w-8 h-8 rounded-[9px] text-ink-3 hover:text-bad hover:bg-bad-soft transition-colors cursor-pointer">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </Td>
               </Tr>
             ))}
           </Table>
         )}
       </div>
+
+      <Modal
+        abierto={creandoPara !== null}
+        titulo={codigoGenerado ? 'Cuenta creada' : 'Crear cuenta web'}
+        subtitulo={codigoGenerado ? undefined : creandoPara ? `Para ${creandoPara.nombres} ${creandoPara.apellidos}` : undefined}
+        onCerrar={() => setCreandoPara(null)}
+        pie={codigoGenerado ? (
+          <Button onClick={() => setCreandoPara(null)}>Entendido</Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={() => setCreandoPara(null)}>Cancelar</Button>
+            <Button onClick={confirmarCrearCuenta} disabled={!correoCuenta.trim() || guardandoCuenta}>
+              {guardandoCuenta ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+              Crear cuenta
+            </Button>
+          </>
+        )}
+      >
+        {codigoGenerado ? (
+          <div className="rounded-[10px] border border-line bg-canvas p-3.5 flex items-center justify-between gap-3 flex-wrap">
+            <span className="flex items-center gap-2 text-ok text-[12.5px] font-semibold">
+              <KeyRound size={16} /> Código de activación
+            </span>
+            <Mono className="font-bold !text-brand !text-[16px] tracking-widest">{codigoGenerado}</Mono>
+          </div>
+        ) : (
+          <>
+            {errorCuenta && (
+              <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorCuenta}</p>
+            )}
+            <Campo etiqueta="Correo del apoderado" requerido>
+              <input type="email" className={claseInput} maxLength={160} value={correoCuenta} autoFocus
+                onChange={e => setCorreoCuenta(e.target.value)} placeholder="madre@gmail.com" />
+            </Campo>
+            <p className="text-[11px] text-ink-3 mt-1.5">
+              Se emitirá un código de activación de un solo uso para que cree su contraseña.
+            </p>
+          </>
+        )}
+      </Modal>
     </>
   );
 }

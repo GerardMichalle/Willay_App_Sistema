@@ -21,6 +21,9 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
 
     List<Alumno> findByAulaIdOrderByApellidosAsc(Long aulaId);
 
+    /** Solo cuenta matriculados activos: un alumno RETIRADO no debe seguir "ocupando" su aula. */
+    long countByAulaIdAndEstado(Long aulaId, String estado);
+
     Optional<Alumno> findByColegioIdAndCodigo(Long colegioId, String codigo);
 
     Optional<Alumno> findByIdAndColegioId(Long id, Long colegioId);

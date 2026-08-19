@@ -43,8 +43,10 @@ services:
       CORS_ORIGENES: ${CORS_ORIGENES:?falta CORS_ORIGENES}
       BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL}
       BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      # Opcionales a propósito: sin clave, CorreoService simplemente no envía
+      # (lo avisa en el log) — nunca debe impedir que el backend arranque.
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM: ${RESEND_FROM}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       LOG_FILE: /var/log/willay/willay.log
     volumes:

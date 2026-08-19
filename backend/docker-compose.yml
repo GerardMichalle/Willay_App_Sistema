@@ -31,12 +31,11 @@ services:
       DB_USER: willay
       DB_PASSWORD: willay-local
       CORS_ORIGENES: http://localhost:5173
-      MAIL_HOST: ${MAIL_HOST:-host.docker.internal}
-      MAIL_PORT: ${MAIL_PORT:-1025}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_AUTH: ${MAIL_AUTH:-false}
-      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      # Sin clave: CorreoService lo detecta y solo lo avisa en el log, no
+      # intenta enviar nada. Pon una clave real de prueba aquí si quieres
+      # ver los correos de verdad en desarrollo.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-Willay <onboarding@resend.dev>}
     ports:
       - "8080:8080"
 

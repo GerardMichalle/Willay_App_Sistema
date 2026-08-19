@@ -400,6 +400,14 @@ export async function getApoderados(): Promise<ApoderadoApi[]> {
   return http<ApoderadoApi[]>('/api/apoderados', undefined, true);
 }
 
+export async function crearCuentaApoderado(id: number, correo: string): Promise<{ codigoActivacion: string }> {
+  return http<{ codigoActivacion: string }>(`/api/apoderados/${id}/cuenta`, { correo }, true);
+}
+
+export async function eliminarApoderado(id: number): Promise<void> {
+  await httpMetodo<void>('DELETE', `/api/apoderados/${id}`);
+}
+
 // ── Matrícula ───────────────────────────────────────────────────────
 export interface DatosMatricula {
   alumno: {

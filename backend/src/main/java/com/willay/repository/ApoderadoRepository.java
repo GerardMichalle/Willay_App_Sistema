@@ -22,6 +22,8 @@ public interface ApoderadoRepository extends JpaRepository<Apoderado, Long> {
 
     Optional<Apoderado> findByUsuarioId(Long usuarioId);
 
+    Optional<Apoderado> findByIdAndColegioId(Long id, Long colegioId);
+
     Optional<Apoderado> findByColegioIdAndDni(Long colegioId, String dni);
 
     java.util.List<Apoderado> findByColegioIdOrderByApellidosAsc(Long colegioId);
