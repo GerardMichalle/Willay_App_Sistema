@@ -41,7 +41,7 @@ public class ApoderadoService {
                     .findFirst().map(CodigoActivacion::getCodigo).orElse(null)
                 : null;
 
-        return new ApoderadoDto(ap.getId(), ap.getNombres(), ap.getApellidos(), ap.getDni(),
+        return new ApoderadoDto(ap.getId(), u != null ? u.getId() : null, ap.getNombres(), ap.getApellidos(), ap.getDni(),
                 ap.getTelefono(), ap.getCorreo(), estado, codigo, u != null ? u.getFotoUrl() : null, hijos);
     }
 }

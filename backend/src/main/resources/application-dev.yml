@@ -2,6 +2,9 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/seed   # ← carga la semilla demo
+    # La semilla demo vive en V900: cualquier migración nueva (V5, V6…) queda
+    # "fuera de orden" frente a ella. Sin esto, Flyway se niega a aplicarla.
+    out-of-order: true
   jpa:
     show-sql: false
 

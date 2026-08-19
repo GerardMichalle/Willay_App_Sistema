@@ -6,6 +6,7 @@ import {
 import Topbar from '../../components/Topbar';
 import { StatCard, Table, Tr, Td, Avatar, Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
+import TelefonoInput from '../../components/TelefonoInput';
 import {
   getAlumnos, getAulas, matricular, descargarPlantilla,
   previsualizarImportacion, confirmarImportacion, type DatosMatricula,
@@ -411,7 +412,7 @@ export default function Matriculas() {
             </div>
             <div className="grid sm:grid-cols-2 gap-x-4 items-center">
               <Campo etiqueta="Correo del estudiante">
-                <input type="email" className={claseInput} value={datos.alumno.correo ?? ''}
+                <input type="email" className={claseInput} maxLength={160} value={datos.alumno.correo ?? ''}
                   onChange={e => setDatos({ ...datos, alumno: { ...datos.alumno, correo: e.target.value } })}
                   placeholder="valeria@gmail.com" />
               </Campo>
@@ -452,12 +453,12 @@ export default function Matriculas() {
                   </select>
                 </Campo>
                 <Campo etiqueta="Teléfono / WhatsApp">
-                  <input className={`${claseInput} font-mono`} value={datos.apoderado.telefono ?? ''}
-                    onChange={e => setDatos({ ...datos, apoderado: { ...datos.apoderado, telefono: e.target.value } })}
+                  <TelefonoInput value={datos.apoderado.telefono ?? ''}
+                    onChange={v => setDatos({ ...datos, apoderado: { ...datos.apoderado, telefono: v } })}
                     placeholder="987 654 321" />
                 </Campo>
                 <Campo etiqueta="Correo">
-                  <input type="email" className={claseInput} value={datos.apoderado.correo ?? ''}
+                  <input type="email" className={claseInput} maxLength={160} value={datos.apoderado.correo ?? ''}
                     onChange={e => setDatos({ ...datos, apoderado: { ...datos.apoderado, correo: e.target.value } })}
                     placeholder="madre@gmail.com" />
                 </Campo>

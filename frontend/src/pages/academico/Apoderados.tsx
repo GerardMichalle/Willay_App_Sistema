@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Loader2, KeyRound, Mail, Phone, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2, KeyRound, Mail, Phone, Users, RefreshCw } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill } from '../../components/ui';
-import { getApoderados } from '../../services/api';
+import { getApoderados, reenviarCodigoUsuario } from '../../services/api';
 import type { ApoderadoApi } from '../../types';
 
 export default function Apoderados() {
@@ -10,12 +10,25 @@ export default function Apoderados() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     getApoderados()
       .then(setApoderados)
       .catch(e => setError(e instanceof Error ? e.message : 'No se pudo cargar la lista'))
       .finally(() => setCargando(false));
   }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  async function reenviar(a: ApoderadoApi) {
+    if (a.usuarioId == null) return;
+    try {
+      const actualizado = await reenviarCodigoUsuario(a.usuarioId);
+      cargar();
+      alert(`Nuevo código de activación para ${a.nombres}: ${actualizado.codigoActivacion}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+    }
+  }
 
   const conCuenta = apoderados.filter(a => a.estadoCuenta === 'ACTIVO').length;
 
@@ -89,6 +102,10 @@ export default function Apoderados() {
                           <Mono className="!text-[11px] font-semibold !text-ink">{a.codigoActivacion}</Mono>
                         </span>
                       )}
+                      <button onClick={() => reenviar(a)} title="Reemitir código"
+                        className="grid place-items-center w-7 h-7 rounded-[8px] text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer">
+                        <RefreshCw size={12} />
+                      </button>
                     </div>
                   )}
                 </Td>

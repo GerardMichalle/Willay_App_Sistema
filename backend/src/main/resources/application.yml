@@ -39,6 +39,17 @@ spring:
       max-file-size: ${UPLOAD_MAX:25MB}
       max-request-size: ${UPLOAD_MAX:25MB}
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_AUTH:true}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+
 server:
   port: ${PORT:8080}
   error:
@@ -54,6 +65,8 @@ willay:
     duracion-refresh-dias: ${JWT_REFRESH_DIAS:14}
   cors:
     origenes: ${CORS_ORIGENES:http://localhost:5173}
+  correo:
+    remitente: ${MAIL_FROM:Willay <willaysoporte@gmail.com>}
   # Cuenta del proveedor creada al primer arranque si la base está vacía
   bootstrap:
     habilitado: ${BOOTSTRAP_ENABLED:true}

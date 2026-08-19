@@ -4,6 +4,7 @@ import AppLayout from './layouts/AppLayout';
 import Protegida from './components/Protegida';
 import Login from './pages/Login';
 import ActivarCuenta from './pages/ActivarCuenta';
+import RecuperarContrasena from './pages/RecuperarContrasena';
 import Home from './pages/Home';
 import Alumnos from './pages/academico/Alumnos';
 import Aulas from './pages/academico/Aulas';
@@ -33,6 +34,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/activar" element={<ActivarCuenta />} />
+          <Route path="/recuperar" element={<RecuperarContrasena />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
 

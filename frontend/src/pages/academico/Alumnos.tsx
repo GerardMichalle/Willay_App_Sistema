@@ -380,7 +380,7 @@ export default function Alumnos() {
                 )}
                 <div className="grid sm:grid-cols-2 gap-x-4">
                   <Campo etiqueta="Correo del estudiante" requerido>
-                    <input type="email" className={claseInput} value={correoCuenta}
+                    <input type="email" className={claseInput} maxLength={160} value={correoCuenta}
                       onChange={e => setCorreoCuenta(e.target.value)} placeholder="valeria@gmail.com" />
                   </Campo>
                   {!editando.dni && (

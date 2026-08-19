@@ -203,6 +203,7 @@ export interface DocenteApi {
 
 export interface ApoderadoApi {
   id: number;
+  usuarioId: number | null;
   nombres: string;
   apellidos: string;
   dni: string;

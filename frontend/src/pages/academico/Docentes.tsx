@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Loader2, Pencil, UserMinus, KeyRound, Mail, Phone } from 'lucide-react';
+import { Plus, Loader2, Pencil, UserMinus, KeyRound, Mail, Phone, RefreshCw } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
-import { getDocentes, getAulas, crearDocente, actualizarDocente, cesarDocente, type DatosDocente } from '../../services/api';
+import TelefonoInput from '../../components/TelefonoInput';
+import { getDocentes, getAulas, crearDocente, actualizarDocente, cesarDocente, reenviarCodigoUsuario, type DatosDocente } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import type { DocenteApi, Aula } from '../../types';
 
@@ -47,6 +48,16 @@ export default function Docentes() {
     setDatos(VACIO);
     setErrorForm(null);
     setAbierto(true);
+  }
+
+  async function reenviar(d: DocenteApi) {
+    try {
+      const actualizado = await reenviarCodigoUsuario(d.usuarioId);
+      await cargar();
+      alert(`Nuevo código de activación para ${d.nombres}: ${actualizado.codigoActivacion}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+    }
   }
 
   function abrirEdicion(d: DocenteApi) {
@@ -187,6 +198,10 @@ export default function Docentes() {
                           <Mono className="!text-[11px] font-semibold !text-ink">{d.codigoActivacion}</Mono>
                         </span>
                       )}
+                      <button onClick={() => reenviar(d)} title="Reemitir código"
+                        className="grid place-items-center w-7 h-7 rounded-[8px] text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer">
+                        <RefreshCw size={12} />
+                      </button>
                     </div>
                   )}
                 </Td>
@@ -241,7 +256,7 @@ export default function Docentes() {
         </div>
 
         <Campo etiqueta="Correo institucional" requerido>
-          <input className={claseInput} type="email" value={datos.correo}
+          <input className={claseInput} type="email" maxLength={160} value={datos.correo}
             onChange={e => setDatos({ ...datos, correo: e.target.value })}
             placeholder="c.mendoza@colegio.edu.pe" />
         </Campo>
@@ -253,8 +268,8 @@ export default function Docentes() {
               placeholder="8 dígitos" />
           </Campo>
           <Campo etiqueta="Teléfono">
-            <input className={`${claseInput} font-mono`} value={datos.telefono ?? ''}
-              onChange={e => setDatos({ ...datos, telefono: e.target.value })} placeholder="999 888 777" />
+            <TelefonoInput value={datos.telefono ?? ''}
+              onChange={v => setDatos({ ...datos, telefono: v })} placeholder="999 888 777" />
           </Campo>
         </div>
 

@@ -138,8 +138,9 @@ export default function Aulas() {
                       </div>
                       {esAdmin && (
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => abrirEdicion(a)} title="Editar"
-                            className="grid place-items-center w-7 h-7 rounded-[8px] text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer">
+                          <button onClick={() => a.totalAlumnos === 0 && abrirEdicion(a)} disabled={a.totalAlumnos > 0}
+                            title={a.totalAlumnos > 0 ? 'No se puede editar: ya tiene estudiantes matriculados' : 'Editar'}
+                            className="grid place-items-center w-7 h-7 rounded-[8px] text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-ink-3">
                             <Pencil size={12} />
                           </button>
                           <button onClick={() => eliminar(a)} title="Desactivar"

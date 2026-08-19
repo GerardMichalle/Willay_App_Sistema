@@ -5,7 +5,7 @@ import {
   Verified, Loader2, Eye, EyeOff,
 } from 'lucide-react';
 import { login } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, CLAVE_AVISO_INACTIVIDAD } from '../context/AuthContext';
 import { LogoWillay } from '../components/Sidebar';
 import PanelMarca from '../components/PanelMarca';
 import { cn } from '../components/ui';
@@ -29,7 +29,13 @@ export default function Login() {
   const [pass, setPass] = useState('');
   const [verPass, setVerPass] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    if (sessionStorage.getItem(CLAVE_AVISO_INACTIVIDAD)) {
+      sessionStorage.removeItem(CLAVE_AVISO_INACTIVIDAD);
+      return 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
+    }
+    return null;
+  });
   const { iniciar } = useAuth();
   const nav = useNavigate();
 
@@ -147,7 +153,7 @@ export default function Login() {
 
             <div className="flex justify-between items-center mt-4 text-[12px] text-ink-3">
               <span>¿Problemas para entrar?</span>
-              <a href="#" className="font-medium text-ink-2 hover:text-brand transition-colors">Recuperar contraseña</a>
+              <Link to="/recuperar" className="font-medium text-ink-2 hover:text-brand transition-colors">Recuperar contraseña</Link>
             </div>
 
             <div className="mt-5 pt-5 border-t border-line">

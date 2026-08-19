@@ -31,6 +31,12 @@ services:
       DB_USER: willay
       DB_PASSWORD: willay-local
       CORS_ORIGENES: http://localhost:5173
+      MAIL_HOST: ${MAIL_HOST:-host.docker.internal}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_AUTH: ${MAIL_AUTH:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
     ports:
       - "8080:8080"
 

@@ -143,6 +143,15 @@ export async function cambiarPasswordPropia(passwordActual: string, passwordNuev
   await httpMetodo<void>('PUT', '/api/auth/password', { passwordActual, passwordNueva });
 }
 
+// ── Recuperar contraseña (sin sesión) ──
+export async function solicitarRecuperacion(correo: string): Promise<void> {
+  await http<void>('/api/auth/recuperar/solicitar', { correo });
+}
+
+export async function completarRecuperacion(correo: string, codigo: string, passwordNueva: string): Promise<void> {
+  await http<void>('/api/auth/recuperar/completar', { correo, codigo, passwordNueva });
+}
+
 // ── Activación de cuenta (flujo real de 2 pasos) ──
 export interface IdentidadActivacion { nombreCompleto: string; rol: string; vinculo: string }
 

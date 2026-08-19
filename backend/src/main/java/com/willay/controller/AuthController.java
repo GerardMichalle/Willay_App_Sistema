@@ -4,6 +4,7 @@ import com.willay.dto.*;
 import com.willay.mapper.UsuarioMapper;
 import com.willay.repository.UsuarioRepository;
 import com.willay.service.AuthService;
+import com.willay.service.RecuperacionService;
 import com.willay.util.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RecuperacionService recuperacionService;
     private final UsuarioRepository usuarioRepository;
     private final UsuarioMapper usuarioMapper;
 
@@ -54,6 +56,20 @@ public class AuthController {
     @Operation(summary = "Cambia la contraseña del usuario autenticado")
     public ResponseEntity<Void> cambiarPassword(@Valid @RequestBody CambiarPasswordRequest peticion, HttpServletRequest req) {
         authService.cambiarPassword(CurrentUser.usuarioId(), peticion, req.getRemoteAddr());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/recuperar/solicitar")
+    @Operation(summary = "Envía un código de recuperación al correo si la cuenta existe (respuesta siempre genérica)")
+    public ResponseEntity<Void> solicitarRecuperacion(@Valid @RequestBody SolicitarRecuperacionRequest peticion, HttpServletRequest req) {
+        recuperacionService.solicitar(peticion.correo(), req.getRemoteAddr());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/recuperar/completar")
+    @Operation(summary = "Valida el código de recuperación y establece la nueva contraseña")
+    public ResponseEntity<Void> completarRecuperacion(@Valid @RequestBody CompletarRecuperacionRequest peticion, HttpServletRequest req) {
+        recuperacionService.completar(peticion.correo(), peticion.codigo(), peticion.passwordNueva(), req.getRemoteAddr());
         return ResponseEntity.noContent().build();
     }
 }

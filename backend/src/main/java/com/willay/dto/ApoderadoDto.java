@@ -4,6 +4,7 @@ import java.util.List;
 
 public record ApoderadoDto(
         Long id,
+        Long usuarioId,
         String nombres,
         String apellidos,
         String dni,

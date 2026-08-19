@@ -68,13 +68,20 @@ public class AulaService {
     public AulaDto actualizar(Long colegioId, Long autorId, Long id, GuardarAulaRequest req, String ip) {
         Aula aula = aulaRepository.findByIdAndColegioId(id, colegioId)
                 .orElseThrow(() -> new NotFoundException("Aula no encontrada"));
+
+        long alumnos = alumnoRepository.findByAulaIdOrderByApellidosAsc(id).size();
+        if (alumnos > 0) {
+            throw new BusinessException(
+                    "No se puede editar: el aula tiene " + alumnos + " estudiantes matriculados. "
+                    + "Cambiar su grado o sección los dejaría en un aula distinta a la real.");
+        }
+
         validarDuplicado(colegioId, req, id);
         aplicar(aula, req);
 
         auditoria.registrar(AccionAuditoria.AULA_ACTUALIZADA, colegioId, autorId, aula.etiqueta(), ip);
-        long alumnos = alumnoRepository.findByAulaIdOrderByApellidosAsc(id).size();
         return new AulaDto(aula.getId(), aula.getNivel(), aula.getGrado(), aula.getSeccion(),
-                aula.getAnioEscolar(), aula.etiqueta(), alumnos);
+                aula.getAnioEscolar(), aula.etiqueta(), 0);
     }
 
     @Transactional

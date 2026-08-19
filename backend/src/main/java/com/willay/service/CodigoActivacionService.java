@@ -26,11 +26,12 @@ public class CodigoActivacionService {
     private static final int INTENTOS_MAX = 50;
 
     private final CodigoActivacionRepository codigoRepository;
+    private final CorreoService correoService;
 
     @Value("${willay.activacion.dias-vigencia:60}")
     private int diasVigencia;
 
-    /** Crea (o renueva) el código de activación de un usuario. */
+    /** Crea (o renueva) el código de activación de un usuario y se lo envía por correo. */
     @Transactional
     public CodigoActivacion emitir(Usuario usuario, String dni) {
         Long colegioId = usuario.getColegio().getId();
@@ -45,7 +46,11 @@ public class CodigoActivacionService {
         codigo.setCodigo(generarUnico(colegioId));
         codigo.setDni(dni);
         codigo.setExpiraEn(OffsetDateTime.now().plusDays(diasVigencia));
-        return codigoRepository.save(codigo);
+        codigoRepository.save(codigo);
+
+        // El correo es un extra: si falla, el código igual queda visible en pantalla.
+        correoService.enviarCodigoActivacion(usuario, codigo.getCodigo(), diasVigencia);
+        return codigo;
     }
 
     private String generarUnico(Long colegioId) {

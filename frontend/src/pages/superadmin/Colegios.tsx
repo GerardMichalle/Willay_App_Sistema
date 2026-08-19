@@ -248,7 +248,7 @@ export default function Colegios() {
                 </Campo>
               </div>
               <Campo etiqueta="Correo" requerido>
-                <input type="email" className={claseInput} value={datos.adminCorreo}
+                <input type="email" className={claseInput} maxLength={160} value={datos.adminCorreo}
                   onChange={e => setDatos({ ...datos, adminCorreo: e.target.value })}
                   placeholder="direccion@santarosa.edu.pe" />
               </Campo>
