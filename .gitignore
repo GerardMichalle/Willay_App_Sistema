@@ -14,3 +14,17 @@ target/
 *.iml
 # SO
 .DS_Store
+# Variables de entorno (nunca deben subirse)
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Backend (Java/Maven)
+backend/target/
+*.class
+*.jar
+
+# Otros
+*.pyc
+__pycache__/
