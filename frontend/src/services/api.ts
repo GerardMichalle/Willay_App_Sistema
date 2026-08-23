@@ -152,6 +152,20 @@ export async function completarRecuperacion(correo: string, codigo: string, pass
   await http<void>('/api/auth/recuperar/completar', { correo, codigo, passwordNueva });
 }
 
+// ── Notificaciones push del navegador (Web Push / VAPID) ──
+export async function getClavePublicaPush(): Promise<string> {
+  const r = await http<{ clavePublica: string }>('/api/push/clave-publica', undefined, true);
+  return r.clavePublica;
+}
+
+export async function suscribirPush(suscripcion: PushSubscriptionJSON): Promise<void> {
+  await http<void>('/api/push/suscribir', suscripcion, true);
+}
+
+export async function desuscribirPush(endpoint: string): Promise<void> {
+  await httpMetodo<void>('DELETE', '/api/push/suscribir', { endpoint });
+}
+
 // ── Activación de cuenta (flujo real de 2 pasos) ──
 export interface IdentidadActivacion { nombreCompleto: string; rol: string; vinculo: string }
 

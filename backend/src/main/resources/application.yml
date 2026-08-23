@@ -57,6 +57,10 @@ willay:
   correo:
     resend-api-key: ${RESEND_API_KEY:}
     remitente: ${RESEND_FROM:Willay <onboarding@resend.dev>}
+  push:
+    vapid-public-key: ${VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${VAPID_PRIVATE_KEY:}
+    vapid-subject: ${VAPID_SUBJECT:mailto:soporte@willay.app}
   # Cuenta del proveedor creada al primer arranque si la base está vacía
   bootstrap:
     habilitado: ${BOOTSTRAP_ENABLED:true}

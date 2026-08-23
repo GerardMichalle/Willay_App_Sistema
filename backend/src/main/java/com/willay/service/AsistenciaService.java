@@ -56,7 +56,7 @@ public class AsistenciaService {
     private final AsistenciaRepository asistenciaRepository;
     private final AsistenciaDiaRepository asistenciaDiaRepository;
     private final AlumnoApoderadoRepository vinculoRepository;
-    private final NotificacionRepository notificacionRepository;
+    private final NotificacionService notificacionService;
     private final ConfiguracionRepository configuracionRepository;
     private final PasswordEncoder passwordEncoder;
     private final MonitorAsistenciaService monitor;
@@ -250,15 +250,8 @@ public class AsistenciaService {
             Usuario cuenta = vinculo.getApoderado().getUsuario();
             if (cuenta == null) continue;
 
-            Notificacion n = new Notificacion();
-            n.setColegio(alumno.getColegio());
-            n.setUsuario(cuenta);
-            n.setTipo("ENTRADA".equals(tipo) ? "INGRESO_HIJO" : "SALIDA_HIJO");
-            n.setTitulo(alumno.getNombres() + " " + ("ENTRADA".equals(tipo) ? "ingresó" : "salió"));
-            n.setCuerpo(texto);
-            n.setCanal("APP");
-            n.setEnviadaEn(OffsetDateTime.now());
-            notificacionRepository.save(n);
+            notificacionService.crear(cuenta, "ENTRADA".equals(tipo) ? "INGRESO_HIJO" : "SALIDA_HIJO",
+                    alumno.getNombres() + " " + ("ENTRADA".equals(tipo) ? "ingresó" : "salió"), texto);
             // TODO: cuando se contrate el proveedor de mensajería, encolar aquí el envío por WhatsApp
         }
     }

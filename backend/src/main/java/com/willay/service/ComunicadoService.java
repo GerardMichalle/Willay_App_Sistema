@@ -31,7 +31,7 @@ public class ComunicadoService {
 
     private final ComunicadoRepository comunicadoRepository;
     private final ComunicadoLecturaRepository lecturaRepository;
-    private final NotificacionRepository notificacionRepository;
+    private final NotificacionService notificacionService;
     private final UsuarioRepository usuarioRepository;
     private final AulaRepository aulaRepository;
     private final DocenteAulaRepository docenteAulaRepository;
@@ -146,15 +146,8 @@ public class ComunicadoService {
         List<Usuario> destinatarios = destinatarios(c, quien.getColegioId());
         for (Usuario u : destinatarios) {
             if (u.getId().equals(quien.getId())) continue;   // no se notifica al autor
-            Notificacion n = new Notificacion();
-            n.setColegio(c.getColegio());
-            n.setUsuario(u);
-            n.setTipo("COMUNICADO");
-            n.setTitulo(c.getTitulo());
-            n.setCuerpo(c.getCuerpo().length() > 160 ? c.getCuerpo().substring(0, 157) + "…" : c.getCuerpo());
-            n.setCanal("APP");
-            n.setEnviadaEn(OffsetDateTime.now());
-            notificacionRepository.save(n);
+            notificacionService.crear(u, "COMUNICADO", c.getTitulo(),
+                    c.getCuerpo().length() > 160 ? c.getCuerpo().substring(0, 157) + "…" : c.getCuerpo());
         }
     }
 

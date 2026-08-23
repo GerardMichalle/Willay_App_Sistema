@@ -2,6 +2,7 @@ package com.willay.service;
 
 import com.willay.dto.NotificacionDto;
 import com.willay.entity.Notificacion;
+import com.willay.entity.Usuario;
 import com.willay.repository.NotificacionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,28 @@ import java.util.List;
 public class NotificacionService {
 
     private final NotificacionRepository notificacionRepository;
+    private final PushNotificacionService pushNotificacionService;
+
+    /**
+     * Punto único donde nace una notificación: la guarda (para la campana
+     * dentro de la app) y dispara el push del navegador (para que llegue
+     * como notificación real del sistema, incluso con la app cerrada).
+     * Antes esto estaba repetido en cuatro servicios distintos.
+     */
+    @Transactional
+    public void crear(Usuario usuario, String tipo, String titulo, String cuerpo) {
+        Notificacion n = new Notificacion();
+        n.setColegio(usuario.getColegio());
+        n.setUsuario(usuario);
+        n.setTipo(tipo);
+        n.setTitulo(titulo);
+        n.setCuerpo(cuerpo);
+        n.setCanal("APP");
+        n.setEnviadaEn(OffsetDateTime.now());
+        notificacionRepository.save(n);
+
+        pushNotificacionService.enviar(usuario.getId(), titulo, cuerpo);
+    }
 
     @Transactional(readOnly = true)
     public List<NotificacionDto> listar(Long usuarioId) {

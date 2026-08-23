@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -33,7 +32,7 @@ public class ConductaService {
     private final UsuarioRepository usuarioRepository;
     private final DocenteAulaRepository docenteAulaRepository;
     private final AlumnoApoderadoRepository vinculoRepository;
-    private final NotificacionRepository notificacionRepository;
+    private final NotificacionService notificacionService;
 
     @Transactional(readOnly = true)
     public List<ConductaDto> listar(UsuarioPrincipal quien) {
@@ -98,15 +97,9 @@ public class ConductaService {
         for (AlumnoApoderado v : vinculoRepository.findByAlumnoId(c.getAlumno().getId())) {
             Usuario cuenta = v.getApoderado().getUsuario();
             if (cuenta == null) continue;
-            Notificacion n = new Notificacion();
-            n.setColegio(c.getColegio());
-            n.setUsuario(cuenta);
-            n.setTipo("CONDUCTA");
-            n.setTitulo((merito ? "Mérito · " : "Observación · ") + c.getAlumno().getNombres());
-            n.setCuerpo(c.getCategoria() + ": " + c.getDescripcion());
-            n.setCanal("APP");
-            n.setEnviadaEn(OffsetDateTime.now());
-            notificacionRepository.save(n);
+            notificacionService.crear(cuenta, "CONDUCTA",
+                    (merito ? "Mérito · " : "Observación · ") + c.getAlumno().getNombres(),
+                    c.getCategoria() + ": " + c.getDescripcion());
         }
     }
 

@@ -42,7 +42,7 @@ public class LibretaService {
     private final UsuarioRepository usuarioRepository;
     private final DocenteAulaRepository docenteAulaRepository;
     private final AlumnoApoderadoRepository vinculoRepository;
-    private final NotificacionRepository notificacionRepository;
+    private final NotificacionService notificacionService;
 
     @Transactional(readOnly = true)
     public List<LibretaDto> listar(UsuarioPrincipal quien, Long alumnoId, Integer anio) {
@@ -186,15 +186,8 @@ public class LibretaService {
         for (AlumnoApoderado v : vinculoRepository.findByAlumnoId(libreta.getAlumno().getId())) {
             Usuario cuenta = v.getApoderado().getUsuario();
             if (cuenta == null) continue;
-            Notificacion n = new Notificacion();
-            n.setColegio(libreta.getColegio());
-            n.setUsuario(cuenta);
-            n.setTipo("LIBRETA");
-            n.setTitulo("Libreta publicada · " + libreta.getPeriodo());
-            n.setCuerpo("Ya puedes consultar las notas de " + libreta.getAlumno().getNombres() + ".");
-            n.setCanal("APP");
-            n.setEnviadaEn(OffsetDateTime.now());
-            notificacionRepository.save(n);
+            notificacionService.crear(cuenta, "LIBRETA", "Libreta publicada · " + libreta.getPeriodo(),
+                    "Ya puedes consultar las notas de " + libreta.getAlumno().getNombres() + ".");
         }
     }
 

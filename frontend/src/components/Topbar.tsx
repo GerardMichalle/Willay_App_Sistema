@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, KeyRound, Camera, Loader2 } from 'lucide-react';
+import { Search, KeyRound, Camera, Loader2, Bell, BellOff, BellRing } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import Notificaciones from './Notificaciones';
 import CambiarPasswordModal from './CambiarPasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
-import { subirFotoPerfil } from '../services/api';
+import { subirFotoPerfil, getClavePublicaPush, suscribirPush, desuscribirPush } from '../services/api';
 import type { Rol } from '../types';
 
 /**
@@ -30,6 +30,36 @@ const PLACEHOLDER: Record<string, string> = {
   apoderado: 'Buscar en Willay…',
 };
 
+/** iOS/iPadOS: Safari (y cualquier navegador ahí, todos corren su motor)
+ *  solo entrega push si la web está instalada en la pantalla de inicio. */
+function esIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+}
+function esInstaladaComoApp() {
+  type NavegadorConStandalone = Navigator & { standalone?: boolean };
+  return window.matchMedia('(display-mode: standalone)').matches
+    || (navigator as NavegadorConStandalone).standalone === true;
+}
+
+/** El navegador soporta la API, pero en iOS sin instalar no sirve de nada intentarlo. */
+function pushDisponibleAqui(): 'ok' | 'sin-soporte' | 'ios-sin-instalar' {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    return 'sin-soporte';
+  }
+  if (esIOS() && !esInstaladaComoApp()) return 'ios-sin-instalar';
+  return 'ok';
+}
+
+/** PushManager.subscribe() exige la clave VAPID como bytes, no como el string base64url que da el backend. */
+function comoClaveVapid(base64url: string): Uint8Array<ArrayBuffer> {
+  const relleno = '='.repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + relleno).replace(/-/g, '+').replace(/_/g, '/');
+  const binario = window.atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes;
+}
+
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { usuario, actualizarUsuario } = useAuth();
   const nav = useNavigate();
@@ -37,6 +67,9 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [passwordAbierto, setPasswordAbierto] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [soportePush] = useState(pushDisponibleAqui);
+  const [pushActivo, setPushActivo] = useState(false);
+  const [cargandoPush, setCargandoPush] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +83,57 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
       alert(e instanceof Error ? e.message : 'No se pudo subir la imagen');
     } finally {
       setSubiendoFoto(false);
+    }
+  }
+
+  // Al cargar, revisa si este navegador ya tiene una suscripción activa
+  // (por ejemplo, se activó ayer y hoy solo se está recargando la página).
+  useEffect(() => {
+    if (soportePush !== 'ok') return;
+    navigator.serviceWorker.getRegistration('/sw.js')
+      .then(reg => reg?.pushManager.getSubscription())
+      .then(sub => setPushActivo(!!sub))
+      .catch(() => {});
+  }, [soportePush]);
+
+  async function activarPush() {
+    setCargandoPush(true);
+    try {
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'granted') {
+        alert('No diste permiso para las notificaciones. Puedes activarlo luego desde los ajustes del navegador.');
+        return;
+      }
+      const registro = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const clavePublica = await getClavePublicaPush();
+      const suscripcion = await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: comoClaveVapid(clavePublica),
+      });
+      await suscribirPush(suscripcion.toJSON() as PushSubscriptionJSON);
+      setPushActivo(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudieron activar las notificaciones');
+    } finally {
+      setCargandoPush(false);
+    }
+  }
+
+  async function desactivarPush() {
+    setCargandoPush(true);
+    try {
+      const registro = await navigator.serviceWorker.getRegistration('/sw.js');
+      const suscripcion = await registro?.pushManager.getSubscription();
+      if (suscripcion) {
+        await desuscribirPush(suscripcion.endpoint);
+        await suscripcion.unsubscribe();
+      }
+      setPushActivo(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudieron desactivar las notificaciones');
+    } finally {
+      setCargandoPush(false);
     }
   }
 
@@ -126,6 +210,29 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
                   >
                     <Camera size={14} /> Cambiar foto de perfil
                   </button>
+                )}
+
+                {soportePush === 'ok' ? (
+                  <button
+                    onClick={() => { void (pushActivo ? desactivarPush() : activarPush()); }}
+                    disabled={cargandoPush}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-2 hover:bg-canvas hover:text-ink transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {cargandoPush ? <Loader2 size={14} className="animate-spin" />
+                      : pushActivo ? <BellRing size={14} className="text-ok" /> : <Bell size={14} />}
+                    {pushActivo ? 'Notificaciones activadas' : 'Activar notificaciones'}
+                  </button>
+                ) : (
+                  <div className="px-4 py-2.5">
+                    <div className="flex items-center gap-2.5 text-[12.5px] font-medium text-ink-3">
+                      <BellOff size={14} /> Notificaciones no disponibles
+                    </div>
+                    <p className="text-[10.5px] text-ink-3 mt-1 pl-[23px] leading-snug">
+                      {soportePush === 'ios-sin-instalar'
+                        ? 'En iPhone/iPad, instala Willay en tu pantalla de inicio para activarlas.'
+                        : 'Tu navegador no admite notificaciones del sistema.'}
+                    </p>
+                  </div>
                 )}
               </div>
             )}
