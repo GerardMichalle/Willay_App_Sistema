@@ -4,6 +4,8 @@ import Topbar from '../../components/Topbar';
 import { StatCard, Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import { getColegios, crearColegio, cambiarEstadoColegio, type DatosColegio } from '../../services/api';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { ColegioApi } from '../../types';
 
 const VACIO: DatosColegio = {
@@ -23,6 +25,8 @@ function claveTemporal() {
 }
 
 export default function Colegios() {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const [colegios, setColegios] = useState<ColegioApi[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,14 +74,18 @@ export default function Colegios() {
 
   async function alternarEstado(c: ColegioApi) {
     const accion = c.activo ? 'suspender' : 'reactivar';
-    if (!confirm(`¿Seguro que deseas ${accion} ${c.nombre}?\n\n${c.activo
-      ? 'Sus usuarios no podrán iniciar sesión. Todos los datos se conservan.'
-      : 'Sus usuarios recuperarán el acceso.'}`)) return;
+    if (!(await confirmar({
+      titulo: `¿Seguro que deseas ${accion} ${c.nombre}?`,
+      mensaje: c.activo
+        ? 'Sus usuarios no podrán iniciar sesión. Todos los datos se conservan.'
+        : 'Sus usuarios recuperarán el acceso.',
+      textoConfirmar: c.activo ? 'Suspender' : 'Reactivar',
+    }))) return;
     try {
       await cambiarEstadoColegio(c.id, !c.activo);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+      toast(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
     }
   }
 

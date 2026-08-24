@@ -5,12 +5,16 @@ import { Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import { getAulas, crearAula, actualizarAula, desactivarAula, type DatosAula } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { Aula } from '../../types';
 
 const NIVELES = ['INICIAL', 'PRIMARIA', 'SECUNDARIA'];
 
 export default function Aulas() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   const esAdmin = usuario?.rol === 'admin';
   const anioActual = new Date().getFullYear();
 
@@ -70,12 +74,16 @@ export default function Aulas() {
   }
 
   async function eliminar(a: Aula) {
-    if (!confirm(`¿Desactivar el aula ${a.etiqueta}?`)) return;
+    if (!(await confirmar({
+      titulo: `¿Desactivar el aula ${a.etiqueta}?`,
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Desactivar',
+    }))) return;
     try {
       await desactivarAula(a.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo desactivar');
+      toast(e instanceof Error ? e.message : 'No se pudo desactivar');
     }
   }
 

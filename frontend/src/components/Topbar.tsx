@@ -7,6 +7,7 @@ import CambiarPasswordModal from './CambiarPasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
 import { subirFotoPerfil, getClavePublicaPush, suscribirPush, desuscribirPush } from '../services/api';
+import { useToast } from '../context/ToastContext';
 import type { Rol } from '../types';
 
 /**
@@ -62,6 +63,7 @@ function comoClaveVapid(base64url: string): Uint8Array<ArrayBuffer> {
 
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { usuario, actualizarUsuario } = useAuth();
+  const toast = useToast();
   const nav = useNavigate();
   const [busqueda, setBusqueda] = useState('');
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -80,7 +82,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
       const rutaCruda = await subirFotoPerfil(archivo);
       actualizarUsuario({ fotoUrl: rutaCruda });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo subir la imagen');
+      toast(e instanceof Error ? e.message : 'No se pudo subir la imagen');
     } finally {
       setSubiendoFoto(false);
     }
@@ -101,7 +103,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
     try {
       const permiso = await Notification.requestPermission();
       if (permiso !== 'granted') {
-        alert('No diste permiso para las notificaciones. Puedes activarlo luego desde los ajustes del navegador.');
+        toast('No diste permiso para las notificaciones. Puedes activarlo luego desde los ajustes del navegador.', 'info');
         return;
       }
       const registro = await navigator.serviceWorker.register('/sw.js');
@@ -114,7 +116,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
       await suscribirPush(suscripcion.toJSON() as PushSubscriptionJSON);
       setPushActivo(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudieron activar las notificaciones');
+      toast(e instanceof Error ? e.message : 'No se pudieron activar las notificaciones');
     } finally {
       setCargandoPush(false);
     }
@@ -131,7 +133,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
       }
       setPushActivo(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudieron desactivar las notificaciones');
+      toast(e instanceof Error ? e.message : 'No se pudieron desactivar las notificaciones');
     } finally {
       setCargandoPush(false);
     }

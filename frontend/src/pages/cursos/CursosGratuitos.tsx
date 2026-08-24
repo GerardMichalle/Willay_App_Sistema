@@ -14,6 +14,8 @@ import {
   type CursoApiCatalogo, type DatosCurso, type DatosRecurso, type RecursoApi,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 
 const TIPO: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
   PDF: { icon: <FileText size={15} />, label: 'PDF', cls: 'bg-bad-soft text-bad' },
@@ -35,6 +37,8 @@ const RECURSO_VACIO: DatosRecurso = { titulo: '', tipo: 'PDF', urlArchivo: null,
 
 export default function CursosGratuitos() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   /** Solo el proveedor de la plataforma gestiona el catálogo. */
   const esProveedor = usuario?.rol === 'superadmin';
 
@@ -101,7 +105,7 @@ export default function CursosGratuitos() {
       setNombreModulo('');
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo crear el módulo');
+      toast(e instanceof Error ? e.message : 'No se pudo crear el módulo');
     } finally {
       setGuardando(false);
     }
@@ -157,7 +161,7 @@ export default function CursosGratuitos() {
       const url = await getEnlaceArchivo(uuidDeRutaArchivo(r.urlArchivo));
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo abrir el archivo');
+      toast(e instanceof Error ? e.message : 'No se pudo abrir el archivo');
     }
   }
 
@@ -170,39 +174,51 @@ export default function CursosGratuitos() {
       a.download = ''; // el backend ya manda el nombre real (con extensión) en Content-Disposition
       a.click();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo descargar el archivo');
+      toast(e instanceof Error ? e.message : 'No se pudo descargar el archivo');
     }
   }
 
   async function quitarRecurso(recursoId: number) {
-    if (!curso || !confirm('¿Eliminar este material del catálogo?')) return;
+    if (!curso || !(await confirmar({
+      titulo: '¿Eliminar este material del catálogo?',
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
     try {
       await eliminarRecursoCurso(curso.id, recursoId);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 
   async function quitarModulo() {
-    if (!curso || !activa || !confirm(`¿Eliminar el módulo "${activa.nombre}" y todo su material?`)) return;
+    if (!curso || !activa || !(await confirmar({
+      titulo: `¿Eliminar el módulo "${activa.nombre}"?`,
+      mensaje: 'Se eliminará junto con todo su material. Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
     try {
       await eliminarCategoriaCurso(curso.id, activa.id);
       setCategoriaActiva(0);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 
   async function quitarCurso() {
-    if (!curso || !confirm(`¿Retirar "${curso.titulo}" del catálogo?`)) return;
+    if (!curso || !(await confirmar({
+      titulo: `¿Retirar "${curso.titulo}" del catálogo?`,
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Retirar',
+    }))) return;
     try {
       await eliminarCurso(curso.id);
       setCursoActivo(0);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo retirar');
+      toast(e instanceof Error ? e.message : 'No se pudo retirar');
     }
   }
 

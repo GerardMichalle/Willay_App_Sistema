@@ -8,6 +8,7 @@ import {
   getConductaApi, getLibretas, getHistorialAsistencia,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import type { Alumno, ConductaApi, AsistenciaHistorialApi } from '../../types';
 
 /** yyyy-MM-dd en hora local (evita el corrimiento de un día de toISOString/UTC). */
@@ -77,6 +78,7 @@ function QrCredencial({ alumnoId, size = 108 }: { alumnoId: number | null; size?
 
 export default function MiPerfil() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const [alumnoId, setAlumnoId] = useState<number | null>(null);
   const [yo, setYo] = useState<Alumno | null>(null);
   const [descargando, setDescargando] = useState(false);
@@ -95,7 +97,7 @@ export default function MiPerfil() {
       const ruta = await subirFotoPerfil(f);
       setFoto(await getEnlaceArchivo(uuidDeRutaArchivo(ruta)));
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo subir la imagen');
+      toast(e instanceof Error ? e.message : 'No se pudo subir la imagen');
     } finally {
       setSubiendo(false);
     }

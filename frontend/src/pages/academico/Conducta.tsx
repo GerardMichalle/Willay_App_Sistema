@@ -5,6 +5,8 @@ import { Table, Tr, Td, Avatar, Mono, Pill, Button, FilterTabs, StatCard } from 
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import { getConductaApi, registrarConducta, eliminarConducta, getAlumnos, type DatosConducta } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { ConductaApi, Alumno } from '../../types';
 
 const CATEGORIAS_MERITO = ['Representación', 'Buen desempeño', 'Solidaridad', 'Puntualidad', 'Participación'];
@@ -14,6 +16,8 @@ const VACIO: DatosConducta = { alumnoId: 0, tipo: 'MERITO', categoria: '', descr
 
 export default function Conducta() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   const puedeRegistrar = ['admin', 'direccion', 'profesor'].includes(usuario?.rol ?? '');
   const puedeEliminar = ['admin', 'direccion'].includes(usuario?.rol ?? '');
 
@@ -60,12 +64,16 @@ export default function Conducta() {
   }
 
   async function eliminar(c: ConductaApi) {
-    if (!confirm(`¿Eliminar este registro de ${c.alumno}?`)) return;
+    if (!(await confirmar({
+      titulo: `¿Eliminar este registro de ${c.alumno}?`,
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
     try {
       await eliminarConducta(c.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 

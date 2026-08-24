@@ -8,6 +8,8 @@ import {
   eliminarComunicado, marcarComunicadoLeido, getAulas, type DatosComunicado,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { ComunicadoApi, Aula } from '../../types';
 
 const DESTINATARIOS = [
@@ -21,6 +23,8 @@ const VACIO: DatosComunicado = { titulo: '', cuerpo: '', dirigidoA: 'TODOS', aul
 
 export default function Comunicados() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   const puedePublicar = ['admin', 'direccion', 'profesor'].includes(usuario?.rol ?? '');
   const puedeEliminar = ['admin', 'direccion'].includes(usuario?.rol ?? '');
 
@@ -87,17 +91,21 @@ export default function Comunicados() {
       await publicarComunicado(c.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo publicar');
+      toast(e instanceof Error ? e.message : 'No se pudo publicar');
     }
   }
 
   async function eliminar(c: ComunicadoApi) {
-    if (!confirm(`¿Eliminar el comunicado "${c.titulo}"?`)) return;
+    if (!(await confirmar({
+      titulo: `¿Eliminar el comunicado "${c.titulo}"?`,
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
     try {
       await eliminarComunicado(c.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 

@@ -3,19 +3,24 @@ import { Loader2, KeyRound, Mail, Phone, Users, RefreshCw, Trash2, UserPlus } fr
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
+import CodigoActivacionModal from '../../components/CodigoActivacionModal';
 import { getApoderados, reenviarCodigoUsuario, crearCuentaApoderado, eliminarApoderado } from '../../services/api';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { ApoderadoApi } from '../../types';
 
 export default function Apoderados() {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const [apoderados, setApoderados] = useState<ApoderadoApi[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [codigoMostrado, setCodigoMostrado] = useState<{ nombre: string; codigo: string } | null>(null);
 
   const [creandoPara, setCreandoPara] = useState<ApoderadoApi | null>(null);
   const [correoCuenta, setCorreoCuenta] = useState('');
   const [guardandoCuenta, setGuardandoCuenta] = useState(false);
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
-  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     getApoderados()
@@ -31,9 +36,9 @@ export default function Apoderados() {
     try {
       const actualizado = await reenviarCodigoUsuario(a.usuarioId);
       cargar();
-      alert(`Nuevo código de activación para ${a.nombres}: ${actualizado.codigoActivacion}`);
+      setCodigoMostrado({ nombre: `${a.nombres} ${a.apellidos}`, codigo: actualizado.codigoActivacion ?? '' });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+      toast(e instanceof Error ? e.message : 'No se pudo reemitir el código');
     }
   }
 
@@ -41,7 +46,6 @@ export default function Apoderados() {
     setCreandoPara(a);
     setCorreoCuenta('');
     setErrorCuenta(null);
-    setCodigoGenerado(null);
   }
 
   async function confirmarCrearCuenta() {
@@ -50,7 +54,9 @@ export default function Apoderados() {
     setGuardandoCuenta(true);
     try {
       const r = await crearCuentaApoderado(creandoPara.id, correoCuenta.trim());
-      setCodigoGenerado(r.codigoActivacion);
+      const nombre = `${creandoPara.nombres} ${creandoPara.apellidos}`;
+      setCreandoPara(null);
+      setCodigoMostrado({ nombre, codigo: r.codigoActivacion });
       await cargar();
     } catch (e) {
       setErrorCuenta(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
@@ -60,12 +66,16 @@ export default function Apoderados() {
   }
 
   async function eliminar(a: ApoderadoApi) {
-    if (!confirm(`¿Eliminar a ${a.nombres} ${a.apellidos}?\n\nSus hijos vinculados no se ven afectados, solo quedan sin este apoderado.`)) return;
+    if (!(await confirmar({
+      titulo: `¿Eliminar a ${a.nombres} ${a.apellidos}?`,
+      mensaje: 'Sus hijos vinculados no se ven afectados, solo quedan sin este apoderado.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
     try {
       await eliminarApoderado(a.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 
@@ -172,12 +182,10 @@ export default function Apoderados() {
 
       <Modal
         abierto={creandoPara !== null}
-        titulo={codigoGenerado ? 'Cuenta creada' : 'Crear cuenta web'}
-        subtitulo={codigoGenerado ? undefined : creandoPara ? `Para ${creandoPara.nombres} ${creandoPara.apellidos}` : undefined}
+        titulo="Crear cuenta web"
+        subtitulo={creandoPara ? `Para ${creandoPara.nombres} ${creandoPara.apellidos}` : undefined}
         onCerrar={() => setCreandoPara(null)}
-        pie={codigoGenerado ? (
-          <Button onClick={() => setCreandoPara(null)}>Entendido</Button>
-        ) : (
+        pie={
           <>
             <Button variant="ghost" onClick={() => setCreandoPara(null)}>Cancelar</Button>
             <Button onClick={confirmarCrearCuenta} disabled={!correoCuenta.trim() || guardandoCuenta}>
@@ -185,30 +193,26 @@ export default function Apoderados() {
               Crear cuenta
             </Button>
           </>
-        )}
+        }
       >
-        {codigoGenerado ? (
-          <div className="rounded-[10px] border border-line bg-canvas p-3.5 flex items-center justify-between gap-3 flex-wrap">
-            <span className="flex items-center gap-2 text-ok text-[12.5px] font-semibold">
-              <KeyRound size={16} /> Código de activación
-            </span>
-            <Mono className="font-bold !text-brand !text-[16px] tracking-widest">{codigoGenerado}</Mono>
-          </div>
-        ) : (
-          <>
-            {errorCuenta && (
-              <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorCuenta}</p>
-            )}
-            <Campo etiqueta="Correo del apoderado" requerido>
-              <input type="email" className={claseInput} maxLength={160} value={correoCuenta} autoFocus
-                onChange={e => setCorreoCuenta(e.target.value)} placeholder="madre@gmail.com" />
-            </Campo>
-            <p className="text-[11px] text-ink-3 mt-1.5">
-              Se emitirá un código de activación de un solo uso para que cree su contraseña.
-            </p>
-          </>
+        {errorCuenta && (
+          <p className="mb-3 rounded-[10px] bg-bad-soft text-bad text-[12px] font-medium px-3.5 py-2.5">{errorCuenta}</p>
         )}
+        <Campo etiqueta="Correo del apoderado" requerido>
+          <input type="email" className={claseInput} maxLength={160} value={correoCuenta} autoFocus
+            onChange={e => setCorreoCuenta(e.target.value)} placeholder="madre@gmail.com" />
+        </Campo>
+        <p className="text-[11px] text-ink-3 mt-1.5">
+          Se emitirá un código de activación de un solo uso para que cree su contraseña.
+        </p>
       </Modal>
+
+      <CodigoActivacionModal
+        abierto={!!codigoMostrado}
+        nombre={codigoMostrado?.nombre ?? ''}
+        codigo={codigoMostrado?.codigo ?? ''}
+        onCerrar={() => setCodigoMostrado(null)}
+      />
     </>
   );
 }

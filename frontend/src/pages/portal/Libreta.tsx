@@ -4,10 +4,12 @@ import Topbar from '../../components/Topbar';
 import { FilterTabs } from '../../components/ui';
 import { getLibretas, getEnlaceArchivo } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import type { LibretaApi } from '../../types';
 
 export default function Libreta() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const esApoderado = usuario?.rol === 'apoderado';
 
   const [libretas, setLibretas] = useState<LibretaApi[]>([]);
@@ -35,7 +37,7 @@ export default function Libreta() {
       const url = await getEnlaceArchivo(l.archivoUuid);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
-      alert('No se pudo abrir la libreta');
+      toast('No se pudo abrir la libreta');
     } finally {
       setAbriendoId(null);
     }
@@ -51,7 +53,7 @@ export default function Libreta() {
       a.download = ''; // el backend ya manda el nombre real (con extensión) en Content-Disposition
       a.click();
     } catch {
-      alert('No se pudo descargar la libreta');
+      toast('No se pudo descargar la libreta');
     } finally {
       setAbriendoId(null);
     }

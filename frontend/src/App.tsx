@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ConfirmProvider } from './context/ConfirmContext';
+import { ToastProvider } from './context/ToastContext';
 import AppLayout from './layouts/AppLayout';
 import Protegida from './components/Protegida';
 import Login from './pages/Login';
@@ -30,7 +32,9 @@ import MiPerfil from './pages/portal/MiPerfil';
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <ConfirmProvider>
+      <ToastProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/activar" element={<ActivarCuenta />} />
@@ -77,6 +81,8 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
+      </ConfirmProvider>
     </AuthProvider>
   );
 }

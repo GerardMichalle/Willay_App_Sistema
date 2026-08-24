@@ -3,6 +3,9 @@ import { Loader2, KeyRound, Power, RefreshCw, Search, ShieldCheck } from 'lucide
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill, FilterTabs } from '../../components/ui';
 import { getUsuariosAdmin, cambiarEstadoUsuario, reenviarCodigoUsuario } from '../../services/api';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
+import CodigoActivacionModal from '../../components/CodigoActivacionModal';
 import type { UsuarioAdminApi } from '../../types';
 
 const ROL_LABEL: Record<string, string> = {
@@ -11,11 +14,14 @@ const ROL_LABEL: Record<string, string> = {
 };
 
 export default function Usuarios() {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const [lista, setLista] = useState<UsuarioAdminApi[]>([]);
   const [tab, setTab] = useState('Todos');
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [codigoMostrado, setCodigoMostrado] = useState<{ nombre: string; codigo: string } | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -33,12 +39,16 @@ export default function Usuarios() {
 
   async function alternarEstado(u: UsuarioAdminApi) {
     const activar = u.estado !== 'ACTIVO';
-    if (!confirm(`¿${activar ? 'Reactivar' : 'Suspender'} la cuenta de ${u.nombres} ${u.apellidos}?`)) return;
+    if (!(await confirmar({
+      titulo: `¿${activar ? 'Reactivar' : 'Suspender'} la cuenta de ${u.nombres} ${u.apellidos}?`,
+      mensaje: activar ? 'Recuperará el acceso al sistema.' : 'No podrá iniciar sesión hasta que la reactives.',
+      textoConfirmar: activar ? 'Reactivar' : 'Suspender',
+    }))) return;
     try {
       await cambiarEstadoUsuario(u.id, activar);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+      toast(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
     }
   }
 
@@ -46,9 +56,9 @@ export default function Usuarios() {
     try {
       const actualizado = await reenviarCodigoUsuario(u.id);
       await cargar();
-      alert(`Nuevo código de activación para ${u.nombres}: ${actualizado.codigoActivacion}`);
+      setCodigoMostrado({ nombre: `${u.nombres} ${u.apellidos}`, codigo: actualizado.codigoActivacion ?? '' });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+      toast(e instanceof Error ? e.message : 'No se pudo reemitir el código');
     }
   }
 
@@ -160,6 +170,13 @@ export default function Usuarios() {
           <ShieldCheck size={12} /> Las contraseñas nunca son visibles ni recuperables: cada usuario crea la suya al activar su cuenta.
         </p>
       </div>
+
+      <CodigoActivacionModal
+        abierto={!!codigoMostrado}
+        nombre={codigoMostrado?.nombre ?? ''}
+        codigo={codigoMostrado?.codigo ?? ''}
+        onCerrar={() => setCodigoMostrado(null)}
+      />
     </>
   );
 }

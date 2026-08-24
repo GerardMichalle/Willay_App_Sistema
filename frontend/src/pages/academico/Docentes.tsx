@@ -3,9 +3,12 @@ import { Plus, Loader2, Pencil, UserMinus, KeyRound, Mail, Phone, RefreshCw } fr
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
+import CodigoActivacionModal from '../../components/CodigoActivacionModal';
 import TelefonoInput from '../../components/TelefonoInput';
 import { getDocentes, getAulas, crearDocente, actualizarDocente, cesarDocente, reenviarCodigoUsuario, type DatosDocente } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { DocenteApi, Aula } from '../../types';
 
 const VACIO: DatosDocente = {
@@ -15,12 +18,15 @@ const VACIO: DatosDocente = {
 
 export default function Docentes() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   const esAdmin = usuario?.rol === 'admin';
 
   const [docentes, setDocentes] = useState<DocenteApi[]>([]);
   const [aulas, setAulas] = useState<Aula[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [codigoMostrado, setCodigoMostrado] = useState<{ nombre: string; codigo: string } | null>(null);
 
   const [abierto, setAbierto] = useState(false);
   const [editando, setEditando] = useState<DocenteApi | null>(null);
@@ -54,9 +60,9 @@ export default function Docentes() {
     try {
       const actualizado = await reenviarCodigoUsuario(d.usuarioId);
       await cargar();
-      alert(`Nuevo código de activación para ${d.nombres}: ${actualizado.codigoActivacion}`);
+      setCodigoMostrado({ nombre: `${d.nombres} ${d.apellidos}`, codigo: actualizado.codigoActivacion ?? '' });
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo reemitir el código');
+      toast(e instanceof Error ? e.message : 'No se pudo reemitir el código');
     }
   }
 
@@ -94,12 +100,16 @@ export default function Docentes() {
   }
 
   async function cesar(d: DocenteApi) {
-    if (!confirm(`¿Cesar a ${d.nombres} ${d.apellidos}?\n\nPerderá el acceso al sistema y se liberarán sus aulas. Su historial de notas y conducta se conserva.`)) return;
+    if (!(await confirmar({
+      titulo: `¿Cesar a ${d.nombres} ${d.apellidos}?`,
+      mensaje: 'Perderá el acceso al sistema y se liberarán sus aulas. Su historial de notas y conducta se conserva.',
+      textoConfirmar: 'Cesar',
+    }))) return;
     try {
       await cesarDocente(d.id);
       await cargar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo cesar al docente');
+      toast(e instanceof Error ? e.message : 'No se pudo cesar al docente');
     }
   }
 
@@ -317,6 +327,13 @@ export default function Docentes() {
           )}
         </Campo>
       </Modal>
+
+      <CodigoActivacionModal
+        abierto={!!codigoMostrado}
+        nombre={codigoMostrado?.nombre ?? ''}
+        codigo={codigoMostrado?.codigo ?? ''}
+        onCerrar={() => setCodigoMostrado(null)}
+      />
     </>
   );
 }

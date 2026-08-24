@@ -5,6 +5,7 @@ import { Table, Tr, Td, Avatar, EstadoBadge, Mono, Button, FilterTabs } from '..
 import { claseInput } from '../../components/Modal';
 import { getHistorialAsistencia, exportarAsistencia } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import type { AsistenciaHistorialApi, EstadoAsistencia } from '../../types';
 
 const TABS = ['Hoy', 'Esta semana', 'Este mes', 'Bimestre'];
@@ -41,6 +42,7 @@ function fechaCorta(iso: string) {
 
 export default function Historial() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const [tab, setTab] = useState('Hoy');
   const [grado, setGrado] = useState('');
   const [filas, setFilas] = useState<AsistenciaHistorialApi[]>([]);
@@ -85,7 +87,7 @@ export default function Historial() {
                 {grados.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             )}
-            <Button variant="ghost" onClick={() => exportarAsistencia().catch(e => alert(e instanceof Error ? e.message : 'No se pudo exportar'))}>
+            <Button variant="ghost" onClick={() => exportarAsistencia().catch(e => toast(e instanceof Error ? e.message : 'No se pudo exportar'))}>
               <Download size={14} /> Exportar
             </Button>
           </div>

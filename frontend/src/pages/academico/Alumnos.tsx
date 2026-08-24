@@ -8,6 +8,8 @@ import {
   crearCuentaAlumno, type DatosAlumno,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { Alumno, Aula } from '../../types';
 
 const TABS = ['Todos', 'Puntuales', 'Tardanzas', 'Ausentes', 'Sin tarjeta'];
@@ -16,6 +18,8 @@ const VACIO: DatosAlumno = { nombres: '', apellidos: '', dni: '', fechaNacimient
 
 export default function Alumnos() {
   const { usuario } = useAuth();
+  const confirmar = useConfirm();
+  const toast = useToast();
   const esAdmin = usuario?.rol === 'admin';
 
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
@@ -125,12 +129,16 @@ export default function Alumnos() {
   }
 
   async function darDeBaja(a: Alumno) {
-    if (!confirm(`¿Dar de baja a ${a.nombres} ${a.apellidos}?\n\nSe conservará todo su historial de asistencia y notas.`)) return;
+    if (!(await confirmar({
+      titulo: `¿Dar de baja a ${a.nombres} ${a.apellidos}?`,
+      mensaje: 'Se conservará todo su historial de asistencia y notas.',
+      textoConfirmar: 'Dar de baja',
+    }))) return;
     try {
       await retirarAlumno(a.id);
       await cargar(busqueda || undefined);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo dar de baja');
+      toast(e instanceof Error ? e.message : 'No se pudo dar de baja');
     }
   }
 
@@ -172,7 +180,7 @@ export default function Alumnos() {
                 className="w-[230px] rounded-[10px] border border-line bg-paper pl-9 pr-3 py-2 text-[12.5px] outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
               />
             </div>
-            <Button variant="ghost" onClick={() => exportarAlumnos().catch(e => alert(e.message))}>
+            <Button variant="ghost" onClick={() => exportarAlumnos().catch(e => toast(e.message))}>
               <Download size={14} /> Exportar
             </Button>
             {esAdmin && <Button onClick={abrirNuevo}><Plus size={14} /> Registrar alumno</Button>}

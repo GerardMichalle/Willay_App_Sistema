@@ -9,9 +9,13 @@ import {
   getConfiguracion, guardarConfiguracion, getPuntosAcceso, crearPuntoAcceso,
   regenerarClaveLector, desactivarPuntoAcceso,
 } from '../../services/api';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
 import type { PuntoAccesoApi } from '../../types';
 
 export default function Configuracion() {
+  const confirmar = useConfirm();
+  const toast = useToast();
   const [config, setConfig] = useState<Record<string, string>>({});
   const [original, setOriginal] = useState<Record<string, string>>({});
   const [lectores, setLectores] = useState<PuntoAccesoApi[]>([]);
@@ -71,30 +75,38 @@ export default function Configuracion() {
       setLectorAbierto(false);
       setLectores(await getPuntosAcceso());
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo registrar el lector');
+      toast(e instanceof Error ? e.message : 'No se pudo registrar el lector');
     } finally {
       setCreandoLector(false);
     }
   }
 
   async function regenerar(l: PuntoAccesoApi) {
-    if (!confirm(`¿Generar una credencial nueva para "${l.nombre}"?\n\nLa anterior dejará de funcionar y habrá que reconfigurar el dispositivo.`)) return;
+    if (!(await confirmar({
+      titulo: `¿Generar una credencial nueva para "${l.nombre}"?`,
+      mensaje: 'La anterior dejará de funcionar y habrá que reconfigurar el dispositivo.',
+      textoConfirmar: 'Generar',
+    }))) return;
     try {
       const p = await regenerarClaveLector(l.id);
       if (p.apiKeyNueva) setClaveNueva({ nombre: p.nombre, clave: p.apiKeyNueva });
       setLectores(await getPuntosAcceso());
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo regenerar');
+      toast(e instanceof Error ? e.message : 'No se pudo regenerar');
     }
   }
 
   async function quitar(l: PuntoAccesoApi) {
-    if (!confirm(`¿Desactivar el lector "${l.nombre}"?`)) return;
+    if (!(await confirmar({
+      titulo: `¿Desactivar el lector "${l.nombre}"?`,
+      mensaje: 'Dejará de aceptar lecturas de tarjetas.',
+      textoConfirmar: 'Desactivar',
+    }))) return;
     try {
       await desactivarPuntoAcceso(l.id);
       setLectores(await getPuntosAcceso());
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo desactivar');
+      toast(e instanceof Error ? e.message : 'No se pudo desactivar');
     }
   }
 
