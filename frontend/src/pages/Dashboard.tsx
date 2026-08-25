@@ -8,7 +8,7 @@ import GateTicker from '../components/GateTicker';
 import { StatCard, PanelHead, Avatar, Mono, Pill, cn } from '../components/ui';
 import { getStatsHoy, getComunicadosApi, getLecturasVivo, getAlumnos, getSetupEstado,
   type DashboardStats } from '../services/api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { SetupEstado, ComunicadoApi, Alumno } from '../types';
 
@@ -17,6 +17,7 @@ interface ActividadItem { id: string; texto: string; detalle: string; hora: stri
 
 export default function Dashboard() {
   const { usuario } = useAuth();
+  const nav = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [errorStats, setErrorStats] = useState<string | null>(null);
   const [setup, setSetup] = useState<SetupEstado | null>(null);
@@ -289,7 +290,11 @@ export default function Dashboard() {
           ) : (
             <div>
               {actividad.map((a, i) => (
-                <div key={a.id} className={cn('flex items-center gap-3.5 py-3 cursor-pointer group', i > 0 && 'border-t border-line')}>
+                <div
+                  key={a.id}
+                  onClick={() => nav(a.id.startsWith('c-') ? '/comunicados' : '/asistencia/vivo')}
+                  className={cn('flex items-center gap-3.5 py-3 cursor-pointer group', i > 0 && 'border-t border-line')}
+                >
                   <Avatar nombre={a.texto} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12.5px] truncate">

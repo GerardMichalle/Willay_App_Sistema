@@ -5,6 +5,7 @@ import com.willay.audit.AuditoriaService;
 import com.willay.dto.ActualizarPagoRequest;
 import com.willay.dto.ChecklistColegioDto;
 import com.willay.dto.ColegioDto;
+import com.willay.dto.ComunicadoGlobalDto;
 import com.willay.dto.ComunicadoGlobalRequest;
 import com.willay.dto.CrearColegioRequest;
 import com.willay.dto.CrearNotaInternaRequest;
@@ -46,6 +47,7 @@ public class ColegioService {
     private final ComunicadoRepository comunicadoRepository;
     private final RegistroAccesoRepository registroAccesoRepository;
     private final NotaInternaRepository notaInternaRepository;
+    private final ComunicadoGlobalRepository comunicadoGlobalRepository;
     private final NotificacionService notificacionService;
     private final ArchivoService archivoService;
     private final PasswordEncoder passwordEncoder;
@@ -218,9 +220,25 @@ public class ColegioService {
         List<Usuario> admins = usuarioRepository.findByRolAndColegio_ActivoTrue(Rol.ADMIN);
         admins.forEach(admin -> notificacionService.crear(admin, "COMUNICADO", req.titulo(), req.mensaje()));
 
+        ComunicadoGlobal cg = new ComunicadoGlobal();
+        cg.setTitulo(req.titulo());
+        cg.setMensaje(req.mensaje());
+        cg.setAutor(usuarioRepository.getReferenceById(autorId));
+        cg.setDestinatarios(admins.size());
+        comunicadoGlobalRepository.save(cg);
+
         auditoria.registrar(AccionAuditoria.COMUNICADO_GLOBAL_ENVIADO, null, autorId,
                 req.titulo() + " → " + admins.size() + " administradores", ip);
         return admins.size();
+    }
+
+    /** Historial de avisos que el proveedor envió a los administradores de todos los colegios. */
+    @Transactional(readOnly = true)
+    public List<ComunicadoGlobalDto> listarComunicadosGlobales() {
+        return comunicadoGlobalRepository.listarTodos().stream()
+                .map(c -> new ComunicadoGlobalDto(c.getId(), c.getTitulo(), c.getMensaje(),
+                        c.getAutor().nombreCompleto(), c.getDestinatarios(), c.getCreadoEn()))
+                .toList();
     }
 
     private ColegioDto aDto(Colegio c) {

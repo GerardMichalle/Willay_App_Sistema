@@ -217,6 +217,15 @@ export interface ApoderadoApi {
   hijos: { id: number; codigo: string; nombre: string; aula: string; parentesco: string }[];
 }
 
+export interface ComunicadoGlobalApi {
+  id: number;
+  titulo: string;
+  mensaje: string;
+  autorNombre: string;
+  destinatarios: number;
+  creadoEn: string;
+}
+
 export interface ColegioApi {
   id: number;
   nombre: string;

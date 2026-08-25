@@ -5,7 +5,7 @@
  */
 import type {
   Rol, Usuario, Alumno, Aula, DocenteApi, ApoderadoApi,
-  ColegioApi, ChecklistColegioApi, MetricasColegioApi, AuditoriaGlobalApi, NotaInternaApi, SetupEstado, Importacion, MatriculaResultado,
+  ColegioApi, ChecklistColegioApi, MetricasColegioApi, AuditoriaGlobalApi, NotaInternaApi, ComunicadoGlobalApi, SetupEstado, Importacion, MatriculaResultado,
   LecturaVivo, NotificacionApi, ComunicadoApi, ConductaApi,
   LibretaApi, CursoApi, UsuarioAdminApi, PuntoAccesoApi,
   TarjetaSinAsignarEvento, AsistenciaHistorialApi,
@@ -604,6 +604,10 @@ export async function cambiarEstadoColegio(id: number, activo: boolean): Promise
 
 export async function enviarComunicadoGlobal(titulo: string, mensaje: string): Promise<void> {
   return http<void>('/api/superadmin/comunicado-global', { titulo, mensaje }, true);
+}
+
+export async function getComunicadosGlobales(): Promise<ComunicadoGlobalApi[]> {
+  return http<ComunicadoGlobalApi[]>('/api/superadmin/comunicados-globales', undefined, true);
 }
 
 export async function actualizarPagoColegio(

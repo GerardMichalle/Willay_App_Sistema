@@ -6,12 +6,12 @@ import Modal, { Campo, claseInput } from '../../components/Modal';
 import {
   getColegios, crearColegio, cambiarEstadoColegio, getChecklistColegio, getMetricasColegio, getSaludSistema,
   getNotasColegio, crearNotaColegio, eliminarNotaColegio, actualizarPagoColegio, enviarComunicadoGlobal,
-  subirLogoColegio, type DatosColegio,
+  getComunicadosGlobales, subirLogoColegio, type DatosColegio,
 } from '../../services/api';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useToast } from '../../context/ToastContext';
 import { useEnlaceArchivo } from '../../hooks/useEnlaceArchivo';
-import type { ColegioApi, ChecklistColegioApi, MetricasColegioApi, NotaInternaApi } from '../../types';
+import type { ColegioApi, ChecklistColegioApi, MetricasColegioApi, NotaInternaApi, ComunicadoGlobalApi } from '../../types';
 
 /** Logo grande y prominente de la tarjeta, con control para subirlo o cambiarlo. */
 function LogoColegioGrande({ colegio, onSubido }: { colegio: ColegioApi; onSubido: (actualizado: ColegioApi) => void }) {
@@ -111,6 +111,8 @@ export default function Colegios() {
   const [comunicadoTitulo, setComunicadoTitulo] = useState('');
   const [comunicadoMensaje, setComunicadoMensaje] = useState('');
   const [enviandoComunicado, setEnviandoComunicado] = useState(false);
+  const [historialComunicados, setHistorialComunicados] = useState<ComunicadoGlobalApi[]>([]);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -248,6 +250,11 @@ export default function Colegios() {
     setComunicadoTitulo('');
     setComunicadoMensaje('');
     setComunicadoAbierto(true);
+    setCargandoHistorial(true);
+    getComunicadosGlobales()
+      .then(setHistorialComunicados)
+      .catch(() => setHistorialComunicados([]))
+      .finally(() => setCargandoHistorial(false));
   }
 
   async function enviarComunicado() {
@@ -259,7 +266,9 @@ export default function Colegios() {
     setEnviandoComunicado(true);
     try {
       await enviarComunicadoGlobal(comunicadoTitulo.trim(), comunicadoMensaje.trim());
-      setComunicadoAbierto(false);
+      setComunicadoTitulo('');
+      setComunicadoMensaje('');
+      setHistorialComunicados(await getComunicadosGlobales());
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo enviar el comunicado');
     } finally {
@@ -649,6 +658,30 @@ export default function Colegios() {
             onChange={e => setComunicadoMensaje(e.target.value)}
             placeholder="El sistema estará en mantenimiento el domingo de 2 a 4 a. m." />
         </Campo>
+
+        <div className="border-t border-line pt-4 mt-1">
+          <p className="label-mono mb-2">Historial enviado</p>
+          {cargandoHistorial ? (
+            <div className="py-4 grid place-items-center text-ink-3"><Loader2 size={16} className="animate-spin" /></div>
+          ) : historialComunicados.length === 0 ? (
+            <div className="flex items-center gap-2 text-[12px] text-ink-3 px-1">
+              <Megaphone size={13} /> Todavía no enviaste ningún comunicado global.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[200px] overflow-y-auto scroll-thin">
+              {historialComunicados.map(c => (
+                <div key={c.id} className="rounded-[10px] border border-line px-3.5 py-2.5">
+                  <p className="text-[12.5px] font-semibold text-ink">{c.titulo}</p>
+                  <p className="text-[12px] text-ink-2 leading-snug mt-0.5">{c.mensaje}</p>
+                  <p className="text-[10.5px] text-ink-3 mt-1.5">
+                    {c.autorNombre} · {new Date(c.creadoEn).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}
+                    {' '}· {c.destinatarios} {c.destinatarios === 1 ? 'administrador' : 'administradores'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Modal>
     </>
   );
