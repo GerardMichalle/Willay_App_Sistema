@@ -130,6 +130,23 @@ public class CorreoService {
                         </td></tr>
                       </table>
 
+                      <!-- Video: miniatura con el botón de play ya dibujado en la imagen — los
+                           correos no reproducen <video>, así que esto abre YouTube al hacer clic. -->
+                      <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
+                        <tr><td align="center">
+                          <a href="https://youtu.be/mfZb6aCWCsk" target="_blank" style="text-decoration:none;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                              <tr><td align="center" style="padding-bottom:10px;">
+                                <span style="color:#8A8792;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">▶ Mira cómo funciona Willay en 30 segundos</span>
+                              </td></tr>
+                              <tr><td>
+                                <img src="https://willay.app/video-activacion-thumb.jpg" width="416" alt="Video: cómo funciona Willay (toca para verlo en YouTube)" style="display:block;width:416px;max-width:100%%;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(224,45,45,.12);border:0;" />
+                              </td></tr>
+                            </table>
+                          </a>
+                        </td></tr>
+                      </table>
+
                       <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#F9F8FB;border-radius:12px;padding:2px;margin-bottom:6px;">
                         <tr><td style="padding:14px 16px;color:#6F6C78;font-size:12px;line-height:1.6;">%s</td></tr>
                       </table>
