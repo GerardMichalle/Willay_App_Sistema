@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -46,6 +47,7 @@ public class ColegioService {
     private final RegistroAccesoRepository registroAccesoRepository;
     private final NotaInternaRepository notaInternaRepository;
     private final NotificacionService notificacionService;
+    private final ArchivoService archivoService;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoria;
 
@@ -192,6 +194,18 @@ public class ColegioService {
         return aDto(colegio);
     }
 
+    /** Insignia del colegio: visible en grande en este panel y en pequeño en el Sidebar de sus usuarios. */
+    @Transactional
+    public ColegioDto actualizarLogo(Long autorId, Long id, MultipartFile archivo, String ip) {
+        Colegio colegio = colegioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Colegio no encontrado"));
+        String url = archivoService.guardarImagen(id, autorId, archivo);
+        colegio.setLogoUrl(url);
+
+        auditoria.registrar(AccionAuditoria.COLEGIO_LOGO_ACTUALIZADO, id, autorId, colegio.getNombre(), ip);
+        return aDto(colegio);
+    }
+
     /**
      * Avisa a todos los administradores de todos los colegios activos a la
      * vez (mantenimiento programado, función nueva, etc.) — sin entrar
@@ -211,7 +225,7 @@ public class ColegioService {
 
     private ColegioDto aDto(Colegio c) {
         return new ColegioDto(
-                c.getId(), c.getNombre(), c.getCodigoModular(), c.getRuc(), c.getColorMarca(),
+                c.getId(), c.getNombre(), c.getCodigoModular(), c.getRuc(), c.getColorMarca(), c.getLogoUrl(),
                 c.isActivo(),
                 alumnoRepository.countByColegioIdAndEstado(c.getId(), "MATRICULADO"),
                 docenteRepository.countByColegioId(c.getId()),

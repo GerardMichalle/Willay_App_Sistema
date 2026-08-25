@@ -12,6 +12,8 @@ export interface Usuario {
   iniciales: string;
   /** Ruta cruda del archivo protegido ("/api/archivos/{uuid}"), no una URL directa. */
   fotoUrl?: string | null;
+  /** Logo del colegio del usuario (misma naturaleza que fotoUrl); null si el colegio no subió uno. */
+  colegioLogoUrl?: string | null;
   /** Aula asignada (solo docentes). No poblado todavía: pendiente de enriquecer /api/auth/yo. */
   aula?: string;
 }
@@ -221,6 +223,7 @@ export interface ColegioApi {
   codigoModular: string | null;
   ruc: string | null;
   colorMarca: string;
+  logoUrl: string | null;
   activo: boolean;
   alumnos: number;
   docentes: number;

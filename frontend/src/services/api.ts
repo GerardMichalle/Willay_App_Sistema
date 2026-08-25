@@ -163,6 +163,7 @@ const ROL_BACKEND_A_FRONT: Record<string, Rol> = {
 interface UsuarioApi {
   id: number; nombres: string; apellidos: string; correo: string;
   rol: string; fotoUrl: string | null; colegioId: number; colegioNombre: string;
+  colegioLogoUrl: string | null;
 }
 
 function mapearUsuario(u: UsuarioApi): Usuario {
@@ -177,6 +178,7 @@ function mapearUsuario(u: UsuarioApi): Usuario {
     sede: 'Sede Central',
     iniciales: (u.nombres[0] ?? '') + (u.apellidos[0] ?? ''),
     fotoUrl: u.fotoUrl,
+    colegioLogoUrl: u.colegioLogoUrl,
   };
 }
 
@@ -608,6 +610,11 @@ export async function actualizarPagoColegio(
   id: number, estadoPago: string, proximoVencimiento: string | null,
 ): Promise<ColegioApi> {
   return httpMetodo<ColegioApi>('PATCH', `/api/superadmin/colegios/${id}/pago`, { estadoPago, proximoVencimiento });
+}
+
+/** Sube o reemplaza el logo del colegio; devuelve el colegio ya actualizado, listo para refrescar la tarjeta. */
+export async function subirLogoColegio(colegioId: number, archivo: File): Promise<ColegioApi> {
+  return subirArchivo<ColegioApi>(`/api/superadmin/colegios/${colegioId}/logo`, archivo);
 }
 
 export async function getChecklistColegio(id: number): Promise<ChecklistColegioApi> {

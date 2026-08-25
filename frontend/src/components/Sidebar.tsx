@@ -6,6 +6,7 @@ import {
   Sparkles, IdCard, BookMarked, School, Building2, CreditCard, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useEnlaceArchivo } from '../hooks/useEnlaceArchivo';
 import { cn } from './ui';
 import type { Rol } from '../types';
 
@@ -131,6 +132,13 @@ const NAV: Group[] = [
   },
 ];
 
+/** Insignia pequeña del colegio del usuario — nada si todavía no subió un logo. */
+function InsigniaColegio({ nombre, logoUrl }: { nombre: string; logoUrl?: string | null }) {
+  const url = useEnlaceArchivo(logoUrl);
+  if (!url) return null;
+  return <img src={url} alt={nombre} className="w-5 h-5 rounded-[6px] object-cover shrink-0 border border-line" />;
+}
+
 export function LogoWillay({ size = 26 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
@@ -156,9 +164,17 @@ export default function Sidebar({ enCajon = false, onNavegar }: { enCajon?: bool
     <aside className={enCajon
       ? 'w-[264px] bg-paper h-full flex flex-col'
       : 'w-[232px] shrink-0 bg-paper border-r border-line h-screen sticky top-0 hidden lg:flex flex-col'}>
-      <div className="px-5 pt-5 pb-4 flex items-center gap-2.5">
-        <LogoWillay />
-        <span className="text-[19px] font-bold tracking-tight">Willay</span>
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center gap-2.5">
+          <LogoWillay />
+          <span className="text-[19px] font-bold tracking-tight">Willay</span>
+        </div>
+        {usuario.rol !== 'superadmin' && usuario.colegio && (
+          <div className="flex items-center gap-1.5 mt-2">
+            <InsigniaColegio nombre={usuario.colegio} logoUrl={usuario.colegioLogoUrl} />
+            <span className="text-[11px] text-ink-3 font-medium truncate">{usuario.colegio}</span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto scroll-thin px-3 pb-4">

@@ -15,8 +15,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -52,6 +54,13 @@ public class ColegioController {
                                     @RequestParam boolean activo,
                                     HttpServletRequest http) {
         return colegioService.cambiarEstado(CurrentUser.usuarioId(), id, activo, http.getRemoteAddr());
+    }
+
+    @PostMapping(value = "/{id}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Sube o reemplaza el logo del colegio")
+    public ColegioDto subirLogo(@PathVariable Long id, @RequestParam("archivo") MultipartFile archivo,
+                                 HttpServletRequest http) {
+        return colegioService.actualizarLogo(CurrentUser.usuarioId(), id, archivo, http.getRemoteAddr());
     }
 
     @PatchMapping("/{id}/pago")

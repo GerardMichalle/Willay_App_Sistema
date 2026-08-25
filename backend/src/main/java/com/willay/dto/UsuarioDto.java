@@ -8,5 +8,6 @@ public record UsuarioDto(
         String rol,
         String fotoUrl,
         Long colegioId,
-        String colegioNombre
+        String colegioNombre,
+        String colegioLogoUrl
 ) {}

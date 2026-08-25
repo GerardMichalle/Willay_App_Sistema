@@ -10,6 +10,7 @@ public record ColegioDto(
         String codigoModular,
         String ruc,
         String colorMarca,
+        String logoUrl,
         boolean activo,
         long alumnos,
         long docentes,

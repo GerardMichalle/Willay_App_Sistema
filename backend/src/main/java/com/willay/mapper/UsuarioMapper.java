@@ -12,5 +12,6 @@ public interface UsuarioMapper {
     @Mapping(target = "rol", expression = "java(usuario.getRol().name())")
     @Mapping(target = "colegioId", source = "colegio.id")
     @Mapping(target = "colegioNombre", source = "colegio.nombre")
+    @Mapping(target = "colegioLogoUrl", source = "colegio.logoUrl")
     UsuarioDto aDto(Usuario usuario);
 }

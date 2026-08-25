@@ -1,15 +1,61 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Circle, Copy, ClipboardList, Activity, History, Trash2, StickyNote, Megaphone } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Circle, Copy, ClipboardList, Activity, History, Trash2, StickyNote, Megaphone, Camera } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { StatCard, Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import {
   getColegios, crearColegio, cambiarEstadoColegio, getChecklistColegio, getMetricasColegio, getSaludSistema,
-  getNotasColegio, crearNotaColegio, eliminarNotaColegio, actualizarPagoColegio, enviarComunicadoGlobal, type DatosColegio,
+  getNotasColegio, crearNotaColegio, eliminarNotaColegio, actualizarPagoColegio, enviarComunicadoGlobal,
+  subirLogoColegio, type DatosColegio,
 } from '../../services/api';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useToast } from '../../context/ToastContext';
+import { useEnlaceArchivo } from '../../hooks/useEnlaceArchivo';
 import type { ColegioApi, ChecklistColegioApi, MetricasColegioApi, NotaInternaApi } from '../../types';
+
+/** Logo grande y prominente de la tarjeta, con control para subirlo o cambiarlo. */
+function LogoColegioGrande({ colegio, onSubido }: { colegio: ColegioApi; onSubido: (actualizado: ColegioApi) => void }) {
+  const url = useEnlaceArchivo(colegio.logoUrl);
+  const [subiendo, setSubiendo] = useState(false);
+  const toast = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function cambiar(archivo: File | null) {
+    if (!archivo) return;
+    setSubiendo(true);
+    try {
+      onSubido(await subirLogoColegio(colegio.id, archivo));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo subir el logo');
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  return (
+    <div className="relative shrink-0">
+      {url ? (
+        <img src={url} alt={colegio.nombre} className="w-16 h-16 rounded-2xl object-cover border border-line" />
+      ) : (
+        <div className="w-16 h-16 rounded-2xl bg-brand-soft text-brand grid place-items-center border border-line">
+          <Building2 size={26} strokeWidth={1.7} />
+        </div>
+      )}
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={subiendo}
+        className="absolute -bottom-1.5 -right-1.5 grid place-items-center w-6 h-6 rounded-full bg-paper border border-line text-ink-2 shadow-sm hover:text-brand hover:border-brand transition-colors cursor-pointer disabled:opacity-50"
+        title="Cambiar logo"
+      >
+        {subiendo ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
+      </button>
+      <input
+        ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+        onChange={e => { void cambiar(e.target.files?.[0] ?? null); e.target.value = ''; }}
+      />
+    </div>
+  );
+}
 
 const VACIO: DatosColegio = {
   nombre: '', codigoModular: '', ruc: '', colorMarca: '#E02D2D',
@@ -295,16 +341,24 @@ export default function Colegios() {
           <div className="grid xl:grid-cols-2 gap-4">
             {colegios.map(c => (
               <div key={c.id} className="card p-6">
-                <PanelHead
-                  title={c.nombre}
-                  sub={c.codigoModular ? `Código modular ${c.codigoModular}` : 'Sin código modular'}
-                  right={
-                    <div className="flex items-center gap-1.5">
-                      <Pill tone={PAGO_INFO[c.estadoPago]?.tono ?? 'neutral'}>{PAGO_INFO[c.estadoPago]?.etiqueta ?? c.estadoPago}</Pill>
-                      <Pill tone={c.activo ? 'ok' : 'bad'}>{c.activo ? 'Activo' : 'Suspendido'}</Pill>
-                    </div>
-                  }
-                />
+                <div className="flex items-start gap-4 mb-4">
+                  <LogoColegioGrande
+                    colegio={c}
+                    onSubido={actualizado => setColegios(actuales => actuales.map(x => x.id === actualizado.id ? actualizado : x))}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <PanelHead
+                      title={c.nombre}
+                      sub={c.codigoModular ? `Código modular ${c.codigoModular}` : 'Sin código modular'}
+                      right={
+                        <div className="flex items-center gap-1.5">
+                          <Pill tone={PAGO_INFO[c.estadoPago]?.tono ?? 'neutral'}>{PAGO_INFO[c.estadoPago]?.etiqueta ?? c.estadoPago}</Pill>
+                          <Pill tone={c.activo ? 'ok' : 'bad'}>{c.activo ? 'Activo' : 'Suspendido'}</Pill>
+                        </div>
+                      }
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div><div className="label-mono">Alumnos</div><div className="text-[20px] font-bold">{c.alumnos}</div></div>
                   <div><div className="label-mono">Docentes</div><div className="text-[20px] font-bold">{c.docentes}</div></div>

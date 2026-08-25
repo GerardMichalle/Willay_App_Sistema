@@ -2,6 +2,7 @@ package com.willay.service;
 
 import com.willay.entity.Alumno;
 import com.willay.entity.Archivo;
+import com.willay.entity.Rol;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
@@ -84,6 +85,9 @@ public class ArchivoService {
         if (archivo.getColegioId() == null) return;
 
         UsuarioPrincipal quien = CurrentUser.get();
+        // El proveedor no pertenece a ningún colegio pero debe poder revisar
+        // el archivo de cualquiera (p. ej. el logo, desde su propio panel).
+        if (quien.getRol() == Rol.SUPER_ADMIN) return;
         if (!archivo.getColegioId().equals(quien.getColegioId())) {
             throw new AccessDeniedException("Sin permiso");
         }
