@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Users, Pencil, BookOpen, GraduationCap, ArrowRight,
   Verified, Loader2, Eye, EyeOff,
 } from 'lucide-react';
-import { login } from '../services/api';
-import { useAuth, CLAVE_AVISO_INACTIVIDAD } from '../context/AuthContext';
+import { login, CLAVE_AVISO_SESION_EXPIRADA } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { LogoWillay } from '../components/Sidebar';
 import PanelMarca from '../components/PanelMarca';
 import { cn } from '../components/ui';
@@ -29,15 +30,17 @@ export default function Login() {
   const [pass, setPass] = useState('');
   const [verPass, setVerPass] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(() => {
-    if (sessionStorage.getItem(CLAVE_AVISO_INACTIVIDAD)) {
-      sessionStorage.removeItem(CLAVE_AVISO_INACTIVIDAD);
-      return 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
-    }
-    return null;
-  });
+  const [error, setError] = useState<string | null>(null);
   const { iniciar } = useAuth();
   const nav = useNavigate();
+  const toast = useToast();
+
+  useEffect(() => {
+    if (sessionStorage.getItem(CLAVE_AVISO_SESION_EXPIRADA)) {
+      sessionStorage.removeItem(CLAVE_AVISO_SESION_EXPIRADA);
+      toast('Tu sesión expiró. Vuelve a iniciar sesión.', 'error');
+    }
+  }, [toast]);
 
   async function entrar() {
     setError(null);

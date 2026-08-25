@@ -31,6 +31,59 @@ function guardarSesion(s: Sesion) { localStorage.setItem(CLAVE_SESION, JSON.stri
 export function borrarSesion() { localStorage.removeItem(CLAVE_SESION); }
 export function tokenActual(): string | null { return sesionGuardada()?.accessToken ?? null; }
 
+/** Lo lee Login.tsx al montar para avisar, con el Toast, por qué volvió aquí. */
+export const CLAVE_AVISO_SESION_EXPIRADA = 'willay-sesion-expirada';
+
+/**
+ * Sesión realmente muerta (el refresh token también expiró o no hay sesión
+ * guardada): limpia todo y manda al login con un aviso. Un reload completo
+ * es lo más simple para que AuthContext (y todo el estado en memoria) vuelva
+ * a nacer limpio, sin necesitar un canal de eventos aparte para notificarle.
+ */
+function manejarSesionExpirada() {
+  borrarSesion();
+  sessionStorage.setItem(CLAVE_AVISO_SESION_EXPIRADA, '1');
+  window.location.href = '/login';
+}
+
+/**
+ * 'ok': se renovó. 'rechazada': el backend dijo que no (refresh también
+ * vencido o inválido) — la sesión ya expiró de verdad. 'sin-red': ni
+ * siquiera se pudo intentar (sin conexión) — distinto de 'rechazada' porque
+ * no implica que la sesión haya muerto, solo que ahora mismo no se puede
+ * confirmar; quien llama no debe cerrar sesión por esto, solo reintentar.
+ */
+type ResultadoRenovacion = 'ok' | 'rechazada' | 'sin-red';
+
+let renovacionEnCurso: Promise<ResultadoRenovacion> | null = null;
+
+async function renovarToken(): Promise<ResultadoRenovacion> {
+  const actual = sesionGuardada();
+  if (!actual) return 'rechazada';
+  let res: Response;
+  try {
+    res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: actual.refreshToken }),
+    });
+  } catch {
+    return 'sin-red';
+  }
+  if (!res.ok) return 'rechazada';
+  const r = await res.json() as { accessToken: string; refreshToken: string; usuario: UsuarioApi };
+  guardarSesion({ accessToken: r.accessToken, refreshToken: r.refreshToken, usuario: mapearUsuario(r.usuario) });
+  return 'ok';
+}
+
+/** Comparte una sola renovación en curso entre todas las peticiones que reciban 401 al mismo tiempo. */
+function renovarTokenCompartido(): Promise<ResultadoRenovacion> {
+  if (!renovacionEnCurso) {
+    renovacionEnCurso = renovarToken().finally(() => { renovacionEnCurso = null; });
+  }
+  return renovacionEnCurso;
+}
+
 /**
  * Aplica cambios al usuario de la sesión activa (p. ej. tras subir una foto)
  * sin volver a loguearse. Devuelve el usuario actualizado para setearlo en
@@ -44,7 +97,17 @@ export function actualizarUsuarioSesion(cambios: Partial<Usuario>): Usuario | nu
   return usuario;
 }
 
-async function http<T>(ruta: string, body?: unknown, conAuth = false): Promise<T> {
+/**
+ * Núcleo compartido de http()/httpMetodo(). Si una petición autenticada
+ * recibe 401, intenta renovar la sesión una sola vez (compartiendo la
+ * renovación con cualquier otra petición que haya fallado al mismo tiempo)
+ * y reintenta automáticamente — el usuario no debe notar que el access
+ * token de 30 min expiró. Si la renovación falla (o el reintento vuelve a
+ * dar 401), la sesión ya expiró de verdad: manejarSesionExpirada() se
+ * encarga y esta promesa deliberadamente no resuelve más, porque la página
+ * está a punto de navegar a /login.
+ */
+async function peticion<T>(metodo: string, ruta: string, body: unknown, conAuth: boolean, reintento = false): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (conAuth) {
     const token = tokenActual();
@@ -52,14 +115,23 @@ async function http<T>(ruta: string, body?: unknown, conAuth = false): Promise<T
   }
   let res: Response;
   try {
-    res = await fetch(ruta, {
-      method: body === undefined ? 'GET' : 'POST',
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    res = await fetch(ruta, { method: metodo, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
   }
+
+  if (res.status === 401 && conAuth) {
+    if (!reintento) {
+      const resultado = await renovarTokenCompartido();
+      if (resultado === 'ok') return peticion<T>(metodo, ruta, body, conAuth, true);
+      if (resultado === 'sin-red') {
+        throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
+      }
+    }
+    manejarSesionExpirada();
+    return new Promise<T>(() => {});
+  }
+
   if (!res.ok) {
     let mensaje = 'Ocurrió un error inesperado';
     try {
@@ -73,28 +145,13 @@ async function http<T>(ruta: string, body?: unknown, conAuth = false): Promise<T
   return res.json() as Promise<T>;
 }
 
-/** Igual que http() pero con verbo explícito (PUT, DELETE, PATCH). */
+async function http<T>(ruta: string, body?: unknown, conAuth = false): Promise<T> {
+  return peticion<T>(body === undefined ? 'GET' : 'POST', ruta, body, conAuth);
+}
+
+/** Igual que http() pero con verbo explícito (PUT, DELETE, PATCH). Siempre autenticada. */
 async function httpMetodo<T>(metodo: string, ruta: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = tokenActual();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let res: Response;
-  try {
-    res = await fetch(ruta, { method: metodo, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  } catch {
-    throw new Error('No se pudo conectar con el servidor');
-  }
-  if (!res.ok) {
-    let mensaje = 'Ocurrió un error inesperado';
-    try {
-      const err = await res.json();
-      mensaje = err?.mensaje ?? mensaje;
-      if (err?.detalles) mensaje = Object.values(err.detalles as Record<string, string>)[0] ?? mensaje;
-    } catch { /* sin cuerpo */ }
-    throw new Error(mensaje);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return peticion<T>(metodo, ruta, body, true);
 }
 
 /** El backend habla en MAYÚSCULAS; el frontend usa sus propios ids de rol. */
@@ -440,7 +497,7 @@ export async function matricular(datos: DatosMatricula): Promise<MatriculaResult
 }
 
 // ── Importación masiva ──────────────────────────────────────────────
-async function subirArchivo<T>(ruta: string, archivo: File): Promise<T> {
+async function subirArchivo<T>(ruta: string, archivo: File, reintento = false): Promise<T> {
   const form = new FormData();
   form.append('archivo', archivo);
   const headers: Record<string, string> = {};
@@ -448,6 +505,17 @@ async function subirArchivo<T>(ruta: string, archivo: File): Promise<T> {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(ruta, { method: 'POST', headers, body: form });
+
+  if (res.status === 401) {
+    if (!reintento) {
+      const resultado = await renovarTokenCompartido();
+      if (resultado === 'ok') return subirArchivo<T>(ruta, archivo, true);
+      if (resultado === 'sin-red') throw new Error('No se pudo conectar con el servidor');
+    }
+    manejarSesionExpirada();
+    return new Promise<T>(() => {});
+  }
+
   if (!res.ok) {
     let mensaje = 'No se pudo procesar el archivo';
     try { mensaje = (await res.json())?.mensaje ?? mensaje; } catch { /* sin cuerpo */ }
@@ -464,15 +532,34 @@ export async function confirmarImportacion(archivo: File): Promise<MatriculaResu
   return subirArchivo<MatriculaResultado[]>('/api/matriculas/importar/confirmar', archivo);
 }
 
-/** Descarga la plantilla Excel con el token de sesión. */
-export async function descargarPlantilla(): Promise<void> {
+/**
+ * Núcleo compartido de toda descarga binaria autenticada (Excel, QR): mismo
+ * mecanismo de renovación-y-reintento que peticion(), pero devolviendo un
+ * Blob en vez de JSON.
+ */
+async function peticionBlob(ruta: string, mensajeError: string, reintento = false): Promise<Blob> {
   const headers: Record<string, string> = {};
   const token = tokenActual();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch('/api/matriculas/plantilla', { headers });
-  if (!res.ok) throw new Error('No se pudo descargar la plantilla');
+  const res = await fetch(ruta, { headers });
 
-  const blob = await res.blob();
+  if (res.status === 401) {
+    if (!reintento) {
+      const resultado = await renovarTokenCompartido();
+      if (resultado === 'ok') return peticionBlob(ruta, mensajeError, true);
+      if (resultado === 'sin-red') throw new Error('No se pudo conectar con el servidor');
+    }
+    manejarSesionExpirada();
+    return new Promise<Blob>(() => {});
+  }
+
+  if (!res.ok) throw new Error(mensajeError);
+  return res.blob();
+}
+
+/** Descarga la plantilla Excel con el token de sesión. */
+export async function descargarPlantilla(): Promise<void> {
+  const blob = await peticionBlob('/api/matriculas/plantilla', 'No se pudo descargar la plantilla');
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -484,12 +571,8 @@ export async function descargarPlantilla(): Promise<void> {
 // ── Credenciales ────────────────────────────────────────────────────
 /** Devuelve el QR del alumno como URL de objeto lista para <img src>. */
 export async function getQrAlumno(alumnoId: number | string): Promise<string> {
-  const headers: Record<string, string> = {};
-  const token = tokenActual();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/api/credenciales/alumno/${alumnoId}/qr`, { headers });
-  if (!res.ok) throw new Error('No se pudo generar el código QR');
-  return URL.createObjectURL(await res.blob());
+  const blob = await peticionBlob(`/api/credenciales/alumno/${alumnoId}/qr`, 'No se pudo generar el código QR');
+  return URL.createObjectURL(blob);
 }
 
 // ── Configuración inicial ───────────────────────────────────────────
@@ -582,23 +665,67 @@ export async function getHistorialAsistencia(desde: string, hasta: string): Prom
 }
 
 /**
- * Canal de lecturas en vivo (SSE). El navegador no puede enviar cabeceras
- * en EventSource, por eso el token viaja como parámetro: el backend lo
- * acepta únicamente en esta ruta.
+ * Núcleo compartido de los canales SSE (asistencia en vivo, vinculación de
+ * tarjetas). El navegador no puede enviar cabeceras en EventSource, por eso
+ * el token viaja como parámetro en la URL — lo que significa que, a
+ * diferencia de peticion(), el token queda "congelado" en la conexión: si
+ * el canal lleva horas abierto (p. ej. "Control en vivo" toda la mañana) y
+ * el access token expira, la reconexión nativa del navegador seguiría
+ * reintentando para siempre con ese mismo token vencido.
+ *
+ * EventSource tampoco expone el código HTTP del error, así que no se puede
+ * distinguir "token vencido" de "wifi caído" desde onerror. Por eso, ante
+ * cualquier error: se cierra la conexión vieja y se intenta renovar la
+ * sesión. Si renueva, se reabre con el token nuevo. Si la renovación fue
+ * rechazada de verdad, la sesión expiró y se cierra sesión. Si fue solo
+ * falta de red, NO se cierra sesión — se reintenta con el token actual tras
+ * una pausa, igual que haría la reconexión nativa.
  */
+function abrirCanalSSE<T>(
+  ruta: string,
+  nombreEvento: string,
+  alRecibir: (dato: T) => void,
+  alFallar?: () => void,
+): () => void {
+  const PAUSA_REINTENTO_MS = 3000;
+  let fuente: EventSource | null = null;
+  let cerrado = false;
+  let reconectando = false;
+
+  function conectar() {
+    const token = tokenActual();
+    if (!token || cerrado) return;
+
+    fuente = new EventSource(`${ruta}?token=${encodeURIComponent(token)}`);
+    fuente.addEventListener(nombreEvento, e => {
+      try { alRecibir(JSON.parse((e as MessageEvent).data) as T); } catch { /* dato inválido */ }
+    });
+    fuente.onerror = () => {
+      alFallar?.();
+      if (cerrado || reconectando) return;
+      reconectando = true;
+      fuente?.close();
+
+      void renovarTokenCompartido().then(resultado => {
+        reconectando = false;
+        if (cerrado) return;
+        if (resultado === 'rechazada') { manejarSesionExpirada(); return; }
+        if (resultado === 'ok') { conectar(); return; }
+        setTimeout(conectar, PAUSA_REINTENTO_MS);
+      });
+    };
+  }
+
+  conectar();
+  return () => { cerrado = true; fuente?.close(); };
+}
+
+/** Canal de lecturas en vivo (SSE). */
 export function abrirCanalAsistencia(
   alRecibir: (l: LecturaVivo) => void,
   alFallar?: () => void,
 ): () => void {
-  const token = tokenActual();
-  if (!token) return () => {};
-
-  const fuente = new EventSource(`/api/asistencia/stream?token=${encodeURIComponent(token)}`);
-  fuente.addEventListener('lectura', e => {
-    try { alRecibir(JSON.parse((e as MessageEvent).data) as LecturaVivo); } catch { /* dato inválido */ }
-  });
-  fuente.onerror = () => { alFallar?.(); };
-  return () => fuente.close();
+  return abrirCanalSSE<LecturaVivo>('/api/asistencia/stream', 'lectura', alRecibir, alFallar);
 }
 
 /**
@@ -610,15 +737,7 @@ export function abrirCanalVinculacion(
   alRecibir: (e: TarjetaSinAsignarEvento) => void,
   alFallar?: () => void,
 ): () => void {
-  const token = tokenActual();
-  if (!token) return () => {};
-
-  const fuente = new EventSource(`/api/asistencia/stream/vincular?token=${encodeURIComponent(token)}`);
-  fuente.addEventListener('tarjeta_sin_asignar', e => {
-    try { alRecibir(JSON.parse((e as MessageEvent).data) as TarjetaSinAsignarEvento); } catch { /* dato inválido */ }
-  });
-  fuente.onerror = () => { alFallar?.(); };
-  return () => fuente.close();
+  return abrirCanalSSE<TarjetaSinAsignarEvento>('/api/asistencia/stream/vincular', 'tarjeta_sin_asignar', alRecibir, alFallar);
 }
 
 /** Simula una pasada de tarjeta. Útil para probar sin el lector físico. */
@@ -799,12 +918,8 @@ export async function subirDocumento(archivo: File): Promise<string> {
 
 // ── Exportación ─────────────────────────────────────────────────────
 async function descargar(ruta: string, nombre: string): Promise<void> {
-  const headers: Record<string, string> = {};
-  const token = tokenActual();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(ruta, { headers });
-  if (!res.ok) throw new Error('No se pudo generar el archivo');
-  const url = URL.createObjectURL(await res.blob());
+  const blob = await peticionBlob(ruta, 'No se pudo generar el archivo');
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = nombre;

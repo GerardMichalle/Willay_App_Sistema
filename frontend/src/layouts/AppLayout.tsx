@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Clock } from 'lucide-react';
 import Sidebar, { LogoWillay } from '../components/Sidebar';
+import Modal from '../components/Modal';
+import { Button } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { useInactividad } from '../hooks/useInactividad';
 
 export default function AppLayout() {
   const { usuario } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
+  const { advertencia, segundosRestantes, seguirConectado } = useInactividad();
 
   // Cierra el cajón al cambiar de ruta y bloquea el scroll del fondo mientras está abierto siuuu
   useEffect(() => { setMenuAbierto(false); }, [ubicacion.pathname]);
@@ -59,6 +63,23 @@ export default function AppLayout() {
         </div>
         <Outlet />
       </main>
+
+      <Modal
+        abierto={advertencia}
+        titulo="Tu sesión está por cerrarse"
+        onCerrar={seguirConectado}
+        pie={<Button onClick={seguirConectado}>Seguir conectado</Button>}
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid place-items-center w-10 h-10 rounded-full bg-bad-soft text-bad shrink-0">
+            <Clock size={18} />
+          </div>
+          <p className="text-[13px] text-ink-2 leading-relaxed">
+            Por seguridad, tu sesión se cerrará en{' '}
+            <span className="font-bold text-ink">{segundosRestantes} segundos</span> por inactividad.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
