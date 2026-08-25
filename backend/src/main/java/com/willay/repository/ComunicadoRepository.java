@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface ComunicadoRepository extends JpaRepository<Comunicado, Long> {
     long countByColegioIdAndPublicadoEnIsNotNull(Long colegioId);
+    boolean existsByColegioIdAndPublicadoEnIsNotNull(Long colegioId);
     List<Comunicado> findTop5ByColegioIdAndPublicadoEnIsNotNullOrderByPublicadoEnDesc(Long colegioId);
 
     List<Comunicado> findByColegioIdOrderByCreadoEnDesc(Long colegioId);

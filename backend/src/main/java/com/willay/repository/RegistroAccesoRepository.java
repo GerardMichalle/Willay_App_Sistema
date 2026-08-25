@@ -17,4 +17,8 @@ public interface RegistroAccesoRepository extends JpaRepository<RegistroAcceso, 
 
     List<RegistroAcceso> findByAlumnoIdAndMomentoAfterOrderByMomentoDesc(
             Long alumnoId, OffsetDateTime desde);
+
+    long countByColegioIdAndMomentoAfter(Long colegioId, OffsetDateTime desde);
+
+    Optional<RegistroAcceso> findTopByColegioIdOrderByMomentoDesc(Long colegioId);
 }

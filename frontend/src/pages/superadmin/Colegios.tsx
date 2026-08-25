@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Copy } from 'lucide-react';
+import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Circle, Copy, ClipboardList, Activity, History, Trash2, StickyNote, Megaphone } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { StatCard, Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
-import { getColegios, crearColegio, cambiarEstadoColegio, type DatosColegio } from '../../services/api';
+import {
+  getColegios, crearColegio, cambiarEstadoColegio, getChecklistColegio, getMetricasColegio, getSaludSistema,
+  getNotasColegio, crearNotaColegio, eliminarNotaColegio, actualizarPagoColegio, enviarComunicadoGlobal, type DatosColegio,
+} from '../../services/api';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useToast } from '../../context/ToastContext';
-import type { ColegioApi } from '../../types';
+import type { ColegioApi, ChecklistColegioApi, MetricasColegioApi, NotaInternaApi } from '../../types';
 
 const VACIO: DatosColegio = {
   nombre: '', codigoModular: '', ruc: '', colorMarca: '#E02D2D',
   sedeNombre: 'Sede Central', sedeDireccion: '',
   adminNombres: '', adminApellidos: '', adminCorreo: '',
   adminDni: '', adminTelefono: '', adminPasswordTemporal: '',
+};
+
+const PAGO_INFO: Record<string, { etiqueta: string; tono: 'ok' | 'warn' | 'bad' }> = {
+  AL_DIA: { etiqueta: 'Al día', tono: 'ok' },
+  PENDIENTE: { etiqueta: 'Pendiente', tono: 'warn' },
+  VENCIDO: { etiqueta: 'Vencido', tono: 'bad' },
 };
 
 /** Genera una contraseña temporal legible para dictarla por teléfono. */
@@ -37,6 +46,26 @@ export default function Colegios() {
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [creado, setCreado] = useState<{ colegio: ColegioApi; correo: string; clave: string } | null>(null);
 
+  const [detalleId, setDetalleId] = useState<number | null>(null);
+  const [checklist, setChecklist] = useState<ChecklistColegioApi | null>(null);
+  const [metricas, setMetricas] = useState<MetricasColegioApi | null>(null);
+  const [notas, setNotas] = useState<NotaInternaApi[]>([]);
+  const [nuevaNota, setNuevaNota] = useState('');
+  const [guardandoNota, setGuardandoNota] = useState(false);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+
+  const [formPagoEstado, setFormPagoEstado] = useState('AL_DIA');
+  const [formPagoFecha, setFormPagoFecha] = useState('');
+  const [guardandoPago, setGuardandoPago] = useState(false);
+
+  const [saludOk, setSaludOk] = useState<boolean | null>(null);
+  const [ultimaVerificacion, setUltimaVerificacion] = useState<Date | null>(null);
+
+  const [comunicadoAbierto, setComunicadoAbierto] = useState(false);
+  const [comunicadoTitulo, setComunicadoTitulo] = useState('');
+  const [comunicadoMensaje, setComunicadoMensaje] = useState('');
+  const [enviandoComunicado, setEnviandoComunicado] = useState(false);
+
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
@@ -50,6 +79,20 @@ export default function Colegios() {
   }, []);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  // Verifica cada 60s mientras la pantalla esté abierta, para detectar una
+  // caída sin tener que entrar por SSH a revisar logs.
+  useEffect(() => {
+    let vivo = true;
+    const verificar = () => {
+      getSaludSistema()
+        .then(ok => { if (vivo) { setSaludOk(ok); setUltimaVerificacion(new Date()); } })
+        .catch(() => { if (vivo) { setSaludOk(false); setUltimaVerificacion(new Date()); } });
+    };
+    verificar();
+    const id = setInterval(verificar, 60_000);
+    return () => { vivo = false; clearInterval(id); };
+  }, []);
 
   function abrirNuevo() {
     setDatos({ ...VACIO, adminPasswordTemporal: claveTemporal() });
@@ -89,6 +132,106 @@ export default function Colegios() {
     }
   }
 
+  async function abrirDetalle(id: number) {
+    setDetalleId(id);
+    setChecklist(null);
+    setMetricas(null);
+    setNotas([]);
+    setNuevaNota('');
+    const colegio = colegios.find(c => c.id === id);
+    setFormPagoEstado(colegio?.estadoPago ?? 'AL_DIA');
+    setFormPagoFecha(colegio?.proximoVencimiento ?? '');
+    setCargandoDetalle(true);
+    try {
+      const [checklistRes, metricasRes, notasRes] = await Promise.all([
+        getChecklistColegio(id), getMetricasColegio(id), getNotasColegio(id),
+      ]);
+      setChecklist(checklistRes);
+      setMetricas(metricasRes);
+      setNotas(notasRes);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo cargar el detalle del colegio');
+    } finally {
+      setCargandoDetalle(false);
+    }
+  }
+
+  async function agregarNota() {
+    if (!detalleId || !nuevaNota.trim()) return;
+    setGuardandoNota(true);
+    try {
+      const nota = await crearNotaColegio(detalleId, nuevaNota.trim());
+      setNotas(actuales => [nota, ...actuales]);
+      setNuevaNota('');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo guardar la nota');
+    } finally {
+      setGuardandoNota(false);
+    }
+  }
+
+  async function eliminarNota(nota: NotaInternaApi) {
+    if (!detalleId) return;
+    if (!(await confirmar({
+      titulo: '¿Eliminar esta nota?',
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+    }))) return;
+    try {
+      await eliminarNotaColegio(detalleId, nota.id);
+      setNotas(actuales => actuales.filter(n => n.id !== nota.id));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo eliminar la nota');
+    }
+  }
+
+  async function guardarPago() {
+    if (!detalleId) return;
+    setGuardandoPago(true);
+    try {
+      const actualizado = await actualizarPagoColegio(detalleId, formPagoEstado, formPagoFecha || null);
+      setColegios(actuales => actuales.map(c => c.id === actualizado.id ? actualizado : c));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo actualizar el estado de pago');
+    } finally {
+      setGuardandoPago(false);
+    }
+  }
+
+  function abrirComunicadoGlobal() {
+    setComunicadoTitulo('');
+    setComunicadoMensaje('');
+    setComunicadoAbierto(true);
+  }
+
+  async function enviarComunicado() {
+    if (!(await confirmar({
+      titulo: '¿Enviar este comunicado a todos los administradores?',
+      mensaje: 'Llegará a los administradores de todos los colegios activos de la plataforma.',
+      textoConfirmar: 'Enviar a todos',
+    }))) return;
+    setEnviandoComunicado(true);
+    try {
+      await enviarComunicadoGlobal(comunicadoTitulo.trim(), comunicadoMensaje.trim());
+      setComunicadoAbierto(false);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo enviar el comunicado');
+    } finally {
+      setEnviandoComunicado(false);
+    }
+  }
+
+  const colegioDetalle = colegios.find(c => c.id === detalleId) ?? null;
+  const itemsChecklist = checklist ? [
+    { etiqueta: 'Aulas creadas', valor: checklist.aulas, completo: checklist.aulas > 0 },
+    { etiqueta: 'Docentes registrados', valor: checklist.docentes, completo: checklist.docentes > 0 },
+    { etiqueta: 'Alumnos matriculados', valor: checklist.alumnos, completo: checklist.alumnos > 0 },
+    { etiqueta: 'Alumnos con tarjeta RFID', valor: checklist.alumnosConTarjeta, completo: checklist.alumnosConTarjeta > 0 },
+    { etiqueta: 'Apoderados con cuenta web', valor: checklist.apoderadosConCuenta, completo: checklist.apoderadosConCuenta > 0 },
+    { etiqueta: 'Lectores RFID registrados', valor: checklist.lectoresRegistrados, completo: checklist.lectoresRegistrados > 0 },
+    { etiqueta: 'Comunicado publicado', valor: checklist.tieneComunicadoPublicado ? 'Sí' : 'No', completo: checklist.tieneComunicadoPublicado },
+  ] : [];
+
   const activos = colegios.filter(c => c.activo).length;
   const totalAlumnos = colegios.reduce((s, c) => s + c.alumnos, 0);
   const totalUsuarios = colegios.reduce((s, c) => s + c.usuariosActivos, 0);
@@ -120,7 +263,22 @@ export default function Colegios() {
             value={String(colegios.length - activos)} note="Sin acceso al sistema" noteTone="warn" />
         </div>
 
-        <div className="flex justify-end">
+        <div className="card px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Activity size={16} className={saludOk === null ? 'text-ink-3' : saludOk ? 'text-ok' : 'text-bad'} />
+            <span className={`text-[13px] font-semibold ${saludOk === null ? 'text-ink-3' : saludOk ? 'text-ok' : 'text-bad'}`}>
+              {saludOk === null ? 'Verificando el sistema…' : saludOk ? 'Sistema operativo' : 'Sin respuesta del servidor'}
+            </span>
+          </div>
+          {ultimaVerificacion && (
+            <Mono className="!text-[10.5px] !text-ink-3">
+              Última verificación: {ultimaVerificacion.toLocaleTimeString('es-PE')}
+            </Mono>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={abrirComunicadoGlobal}><Megaphone size={14} /> Comunicado a todos</Button>
           <Button onClick={abrirNuevo}><Plus size={14} /> Registrar colegio</Button>
         </div>
 
@@ -140,7 +298,12 @@ export default function Colegios() {
                 <PanelHead
                   title={c.nombre}
                   sub={c.codigoModular ? `Código modular ${c.codigoModular}` : 'Sin código modular'}
-                  right={<Pill tone={c.activo ? 'ok' : 'bad'}>{c.activo ? 'Activo' : 'Suspendido'}</Pill>}
+                  right={
+                    <div className="flex items-center gap-1.5">
+                      <Pill tone={PAGO_INFO[c.estadoPago]?.tono ?? 'neutral'}>{PAGO_INFO[c.estadoPago]?.etiqueta ?? c.estadoPago}</Pill>
+                      <Pill tone={c.activo ? 'ok' : 'bad'}>{c.activo ? 'Activo' : 'Suspendido'}</Pill>
+                    </div>
+                  }
                 />
                 <div className="grid grid-cols-3 gap-4">
                   <div><div className="label-mono">Alumnos</div><div className="text-[20px] font-bold">{c.alumnos}</div></div>
@@ -151,13 +314,21 @@ export default function Colegios() {
                   <Mono className="!text-[10.5px]">
                     Alta: {new Date(c.creadoEn).toLocaleDateString('es-PE')} · {c.usuariosActivos} cuentas activas
                   </Mono>
-                  <button
-                    onClick={() => alternarEstado(c)}
-                    className={`inline-flex items-center gap-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                      c.activo ? 'text-ink-3 hover:text-bad' : 'text-ok hover:text-ok'}`}
-                  >
-                    <Power size={13} /> {c.activo ? 'Suspender' : 'Reactivar'}
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => void abrirDetalle(c.id)}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-2 hover:text-brand transition-colors cursor-pointer"
+                    >
+                      <ClipboardList size={13} /> Ver detalle
+                    </button>
+                    <button
+                      onClick={() => alternarEstado(c)}
+                      className={`inline-flex items-center gap-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
+                        c.activo ? 'text-ink-3 hover:text-bad' : 'text-ok hover:text-ok'}`}
+                    >
+                      <Power size={13} /> {c.activo ? 'Suspender' : 'Reactivar'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -277,6 +448,153 @@ export default function Colegios() {
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal
+        abierto={detalleId !== null}
+        titulo={colegioDetalle?.nombre ?? 'Detalle del colegio'}
+        subtitulo="Avance de implementación"
+        onCerrar={() => setDetalleId(null)}
+        pie={<Button variant="ghost" onClick={() => setDetalleId(null)}>Cerrar</Button>}
+      >
+        {cargandoDetalle ? (
+          <div className="py-8 grid place-items-center text-ink-3"><Loader2 size={20} className="animate-spin" /></div>
+        ) : (
+          <div className="space-y-5">
+            <div>
+              <p className="label-mono mb-2">Avance de implementación</p>
+              <div className="space-y-2">
+                {itemsChecklist.map(item => (
+                  <div key={item.etiqueta} className="flex items-center justify-between rounded-[10px] border border-line px-3.5 py-2.5">
+                    <span className="flex items-center gap-2 text-[12.5px] font-medium text-ink-2">
+                      {item.completo
+                        ? <CheckCircle2 size={15} className="text-ok shrink-0" />
+                        : <Circle size={15} className="text-ink-3 shrink-0" />}
+                      {item.etiqueta}
+                    </span>
+                    <Mono className="!text-[12.5px] font-semibold !text-ink">{item.valor}</Mono>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {metricas && (
+              <div>
+                <p className="label-mono mb-2">Actividad reciente</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-[10px] border border-line px-3.5 py-2.5">
+                    <div className="text-[10.5px] text-ink-3 font-medium">Lecturas esta semana</div>
+                    <div className="text-[18px] font-bold mt-0.5">{metricas.lecturasSemana}</div>
+                  </div>
+                  <div className="rounded-[10px] border border-line px-3.5 py-2.5">
+                    <div className="text-[10.5px] text-ink-3 font-medium">Comunicados publicados</div>
+                    <div className="text-[18px] font-bold mt-0.5">{metricas.comunicadosPublicadosTotal}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2 rounded-[10px] border border-line px-3.5 py-2.5">
+                  <History size={14} className="text-ink-3 shrink-0" />
+                  <span className="text-[12.5px] text-ink-2">
+                    {metricas.ultimaActividad
+                      ? <>Última actividad: <span className="font-semibold text-ink">{new Date(metricas.ultimaActividad).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}</span></>
+                      : <span className="text-ink-3">Sin actividad registrada</span>}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="label-mono mb-2">Estado de pago</p>
+              <div className="flex gap-2">
+                <select className={claseInput} value={formPagoEstado} onChange={e => setFormPagoEstado(e.target.value)}>
+                  <option value="AL_DIA">Al día</option>
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="VENCIDO">Vencido</option>
+                </select>
+                <input
+                  type="date"
+                  className={claseInput}
+                  value={formPagoFecha}
+                  onChange={e => setFormPagoFecha(e.target.value)}
+                  title="Próximo vencimiento"
+                />
+                <Button onClick={() => void guardarPago()} disabled={guardandoPago}>
+                  {guardandoPago ? <Loader2 size={14} className="animate-spin" /> : 'Guardar'}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <p className="label-mono mb-2">Notas internas</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  className={claseInput}
+                  placeholder="Ej: renovó contrato hasta dic. 2026, pendiente factura…"
+                  value={nuevaNota}
+                  onChange={e => setNuevaNota(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') void agregarNota(); }}
+                />
+                <Button onClick={() => void agregarNota()} disabled={!nuevaNota.trim() || guardandoNota}>
+                  {guardandoNota ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                </Button>
+              </div>
+
+              {notas.length === 0 ? (
+                <div className="flex items-center gap-2 text-[12px] text-ink-3 px-1">
+                  <StickyNote size={13} /> Sin notas todavía.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[240px] overflow-y-auto scroll-thin">
+                  {notas.map(n => (
+                    <div key={n.id} className="rounded-[10px] border border-line px-3.5 py-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[12.5px] text-ink leading-snug flex-1">{n.contenido}</p>
+                        <button
+                          onClick={() => void eliminarNota(n)}
+                          className="shrink-0 text-ink-3 hover:text-bad transition-colors cursor-pointer"
+                          title="Eliminar nota"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <p className="text-[10.5px] text-ink-3 mt-1.5">
+                        {n.autorNombre} · {new Date(n.creadoEn).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        abierto={comunicadoAbierto}
+        titulo="Comunicado a todos los administradores"
+        subtitulo="Llega a los administradores de todos los colegios activos"
+        onCerrar={() => setComunicadoAbierto(false)}
+        pie={
+          <>
+            <Button variant="ghost" onClick={() => setComunicadoAbierto(false)}>Cancelar</Button>
+            <Button
+              onClick={() => void enviarComunicado()}
+              disabled={!comunicadoTitulo.trim() || !comunicadoMensaje.trim() || enviandoComunicado}
+            >
+              {enviandoComunicado ? <Loader2 size={14} className="animate-spin" /> : <Megaphone size={14} />}
+              Enviar a todos
+            </Button>
+          </>
+        }
+      >
+        <Campo etiqueta="Título" requerido>
+          <input className={claseInput} autoFocus value={comunicadoTitulo}
+            onChange={e => setComunicadoTitulo(e.target.value)} placeholder="Mantenimiento programado" />
+        </Campo>
+        <Campo etiqueta="Mensaje" requerido>
+          <textarea className={`${claseInput} min-h-[100px]`} value={comunicadoMensaje}
+            onChange={e => setComunicadoMensaje(e.target.value)}
+            placeholder="El sistema estará en mantenimiento el domingo de 2 a 4 a. m." />
+        </Campo>
       </Modal>
     </>
   );

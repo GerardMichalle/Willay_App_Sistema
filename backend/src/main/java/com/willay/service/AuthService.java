@@ -50,9 +50,15 @@ public class AuthService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(peticion.correo(), peticion.password()));
         } catch (BadCredentialsException e) {
-            intentosAcceso.registrarFallo(peticion.correo());
+            // Se busca el colegio aparte (no desde la excepción): así la auditoría
+            // queda identificada aunque la contraseña sea la que falló, sin que
+            // la respuesta al cliente revele si la cuenta existe o no.
+            Long colegioFallido = usuarioRepository.findByCorreoIgnoreCase(peticion.correo())
+                    .map(u -> u.getColegio() != null ? u.getColegio().getId() : null)
+                    .orElse(null);
+            intentosAcceso.registrarFallo(peticion.correo(), colegioFallido);
             intentosAcceso.registrarFallo(ip);
-            auditoria.registrar(AccionAuditoria.LOGIN_FALLIDO, null, null, peticion.correo(), ip);
+            auditoria.registrar(AccionAuditoria.LOGIN_FALLIDO, colegioFallido, null, peticion.correo(), ip);
             throw e;
         }
 

@@ -5,7 +5,7 @@
  */
 import type {
   Rol, Usuario, Alumno, Aula, DocenteApi, ApoderadoApi,
-  ColegioApi, SetupEstado, Importacion, MatriculaResultado,
+  ColegioApi, ChecklistColegioApi, MetricasColegioApi, AuditoriaGlobalApi, NotaInternaApi, SetupEstado, Importacion, MatriculaResultado,
   LecturaVivo, NotificacionApi, ComunicadoApi, ConductaApi,
   LibretaApi, CursoApi, UsuarioAdminApi, PuntoAccesoApi,
   TarjetaSinAsignarEvento, AsistenciaHistorialApi,
@@ -187,7 +187,7 @@ interface AlumnoApi {
   estadoHoy: string; estadoCuenta: string | null;
 }
 
-interface PaginaApi<T> {
+export interface PaginaApi<T> {
   contenido: T[]; pagina: number; tamano: number; total: number; totalPaginas: number;
 }
 
@@ -515,6 +515,56 @@ export async function crearColegio(datos: DatosColegio): Promise<ColegioApi> {
 
 export async function cambiarEstadoColegio(id: number, activo: boolean): Promise<ColegioApi> {
   return httpMetodo<ColegioApi>('PATCH', `/api/superadmin/colegios/${id}/estado?activo=${activo}`);
+}
+
+export async function enviarComunicadoGlobal(titulo: string, mensaje: string): Promise<void> {
+  return http<void>('/api/superadmin/comunicado-global', { titulo, mensaje }, true);
+}
+
+export async function actualizarPagoColegio(
+  id: number, estadoPago: string, proximoVencimiento: string | null,
+): Promise<ColegioApi> {
+  return httpMetodo<ColegioApi>('PATCH', `/api/superadmin/colegios/${id}/pago`, { estadoPago, proximoVencimiento });
+}
+
+export async function getChecklistColegio(id: number): Promise<ChecklistColegioApi> {
+  return http<ChecklistColegioApi>(`/api/superadmin/colegios/${id}/checklist`, undefined, true);
+}
+
+export async function getMetricasColegio(id: number): Promise<MetricasColegioApi> {
+  return http<MetricasColegioApi>(`/api/superadmin/colegios/${id}/metricas`, undefined, true);
+}
+
+export async function getNotasColegio(id: number): Promise<NotaInternaApi[]> {
+  return http<NotaInternaApi[]>(`/api/superadmin/colegios/${id}/notas`, undefined, true);
+}
+
+export async function crearNotaColegio(id: number, contenido: string): Promise<NotaInternaApi> {
+  return http<NotaInternaApi>(`/api/superadmin/colegios/${id}/notas`, { contenido }, true);
+}
+
+export async function eliminarNotaColegio(id: number, notaId: number): Promise<void> {
+  return httpMetodo<void>('DELETE', `/api/superadmin/colegios/${id}/notas/${notaId}`);
+}
+
+export async function getAuditoria(opciones: {
+  colegioId?: number; accion?: string; pagina?: number; tamano?: number;
+}): Promise<PaginaApi<AuditoriaGlobalApi>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones.pagina ?? 0),
+    tamano: String(opciones.tamano ?? 50),
+  });
+  if (opciones.colegioId) params.set('colegioId', String(opciones.colegioId));
+  if (opciones.accion) params.set('accion', opciones.accion);
+  return http<PaginaApi<AuditoriaGlobalApi>>(`/api/superadmin/auditoria?${params}`, undefined, true);
+}
+
+/** /actuator/health es público (ver SecurityConfig): no hace falta token para consultarlo. */
+export async function getSaludSistema(): Promise<boolean> {
+  const res = await fetch('/actuator/health');
+  if (!res.ok) return false;
+  const cuerpo = await res.json();
+  return cuerpo?.status === 'UP';
 }
 
 /* ═══════════════════════════════════════════════════════════════════

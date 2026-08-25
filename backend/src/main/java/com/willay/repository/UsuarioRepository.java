@@ -24,4 +24,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
             Long colegioId, java.util.Collection<Rol> roles, com.willay.entity.EstadoUsuario estado);
 
     java.util.List<Usuario> findByColegioIdOrderByApellidosAsc(Long colegioId);
+
+    /** Para el comunicado global del proveedor: solo administradores de colegios activos. */
+    java.util.List<Usuario> findByRolAndColegio_ActivoTrue(Rol rol);
 }

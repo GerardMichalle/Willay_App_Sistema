@@ -3,7 +3,7 @@ import {
   GraduationCap, Users, HeartHandshake, BookOpen, Flag,
   Radio, ListOrdered, Megaphone, TrendingUp, PieChart,
   UserCog, ShieldCheck, Settings, LogOut, LayoutGrid, FileSignature,
-  Sparkles, IdCard, BookMarked, School, Building2, CreditCard,
+  Sparkles, IdCard, BookMarked, School, Building2, CreditCard, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from './ui';
@@ -27,6 +27,7 @@ const NAV: Group[] = [
     roles: ['superadmin'],
     items: [
       { to: '/colegios', label: 'Instituciones', icon: <Building2 size={IC} /> },
+      { to: '/auditoria', label: 'Auditoría', icon: <ScrollText size={IC} /> },
       { to: '/cursos', label: 'Catálogo de cursos', icon: <Sparkles size={IC} /> },
     ],
   },

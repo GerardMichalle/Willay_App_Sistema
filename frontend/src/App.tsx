@@ -12,6 +12,7 @@ import Alumnos from './pages/academico/Alumnos';
 import Aulas from './pages/academico/Aulas';
 import VincularTarjetas from './pages/academico/VincularTarjetas';
 import Colegios from './pages/superadmin/Colegios';
+import Auditoria from './pages/superadmin/Auditoria';
 import Matriculas from './pages/academico/Matriculas';
 import Apoderados from './pages/academico/Apoderados';
 import Docentes from './pages/academico/Docentes';
@@ -68,6 +69,7 @@ export default function App() {
 
             {/* Panel del proveedor: SOLO super admin */}
             <Route path="/colegios" element={<Protegida roles={['superadmin']}><Colegios /></Protegida>} />
+            <Route path="/auditoria" element={<Protegida roles={['superadmin']}><Auditoria /></Protegida>} />
 
             {/* Sistema: SOLO administrador */}
             <Route path="/usuarios" element={<Protegida roles={['admin']}><Usuarios /></Protegida>} />

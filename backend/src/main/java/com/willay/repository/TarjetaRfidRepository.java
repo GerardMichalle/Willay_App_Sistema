@@ -15,4 +15,6 @@ public interface TarjetaRfidRepository extends JpaRepository<TarjetaRfid, Long> 
     boolean existsByColegioIdAndCodigoAndEstado(Long colegioId, String codigo, String estado);
 
     List<TarjetaRfid> findByColegioIdAndEstado(Long colegioId, String estado);
+
+    long countByColegioIdAndEstado(Long colegioId, String estado);
 }

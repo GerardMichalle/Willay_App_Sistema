@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "colegio")
 @Getter @Setter
@@ -25,4 +27,11 @@ public class Colegio extends EntidadBase {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /** AL_DIA, PENDIENTE o VENCIDO — validado en el DTO, no aquí (ver ActualizarPagoRequest). */
+    @Column(name = "estado_pago", nullable = false, length = 20)
+    private String estadoPago = "AL_DIA";
+
+    @Column(name = "proximo_vencimiento")
+    private LocalDate proximoVencimiento;
 }

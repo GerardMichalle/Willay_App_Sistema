@@ -2,8 +2,14 @@ package com.willay.service;
 
 import com.willay.audit.AccionAuditoria;
 import com.willay.audit.AuditoriaService;
+import com.willay.dto.ActualizarPagoRequest;
+import com.willay.dto.ChecklistColegioDto;
 import com.willay.dto.ColegioDto;
+import com.willay.dto.ComunicadoGlobalRequest;
 import com.willay.dto.CrearColegioRequest;
+import com.willay.dto.CrearNotaInternaRequest;
+import com.willay.dto.MetricasColegioDto;
+import com.willay.dto.NotaInternaDto;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
@@ -13,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -32,12 +39,87 @@ public class ColegioService {
     private final AlumnoRepository alumnoRepository;
     private final DocenteRepository docenteRepository;
     private final ApoderadoRepository apoderadoRepository;
+    private final AulaRepository aulaRepository;
+    private final TarjetaRfidRepository tarjetaRfidRepository;
+    private final PuntoAccesoRepository puntoAccesoRepository;
+    private final ComunicadoRepository comunicadoRepository;
+    private final RegistroAccesoRepository registroAccesoRepository;
+    private final NotaInternaRepository notaInternaRepository;
+    private final NotificacionService notificacionService;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoria;
 
     @Transactional(readOnly = true)
     public List<ColegioDto> listar() {
         return colegioRepository.findAll().stream().map(this::aDto).toList();
+    }
+
+    /** Avance de implementación: qué le falta configurar a un colegio cliente. */
+    @Transactional(readOnly = true)
+    public ChecklistColegioDto checklist(Long colegioId) {
+        exigirExiste(colegioId);
+        return new ChecklistColegioDto(
+                aulaRepository.countByColegioIdAndActivoTrue(colegioId),
+                docenteRepository.countByColegioId(colegioId),
+                alumnoRepository.countByColegioIdAndEstado(colegioId, "MATRICULADO"),
+                tarjetaRfidRepository.countByColegioIdAndEstado(colegioId, "ACTIVA"),
+                apoderadoRepository.contarConCuentaActiva(colegioId),
+                puntoAccesoRepository.countByColegioId(colegioId),
+                comunicadoRepository.existsByColegioIdAndPublicadoEnIsNotNull(colegioId));
+    }
+
+    /** Actividad reciente: para detectar colegios que dejaron de usar el sistema. */
+    @Transactional(readOnly = true)
+    public MetricasColegioDto metricas(Long colegioId) {
+        exigirExiste(colegioId);
+        OffsetDateTime desde = OffsetDateTime.now().minusDays(7);
+        OffsetDateTime ultimaActividad = registroAccesoRepository.findTopByColegioIdOrderByMomentoDesc(colegioId)
+                .map(RegistroAcceso::getMomento)
+                .orElse(null);
+        return new MetricasColegioDto(
+                registroAccesoRepository.countByColegioIdAndMomentoAfter(colegioId, desde),
+                comunicadoRepository.countByColegioIdAndPublicadoEnIsNotNull(colegioId),
+                ultimaActividad);
+    }
+
+    /** Bitácora del proveedor sobre el colegio: contacto, vencimiento de contrato, incidencias. */
+    @Transactional(readOnly = true)
+    public List<NotaInternaDto> listarNotas(Long colegioId) {
+        exigirExiste(colegioId);
+        return notaInternaRepository.listarDelColegio(colegioId).stream().map(this::aDto).toList();
+    }
+
+    @Transactional
+    public NotaInternaDto crearNota(Long colegioId, Long autorId, CrearNotaInternaRequest req) {
+        Colegio colegio = colegioRepository.findById(colegioId)
+                .orElseThrow(() -> new NotFoundException("Colegio no encontrado"));
+        Usuario autor = usuarioRepository.getReferenceById(autorId);
+
+        NotaInterna nota = new NotaInterna();
+        nota.setColegio(colegio);
+        nota.setAutor(autor);
+        nota.setContenido(req.contenido().trim());
+        notaInternaRepository.save(nota);
+
+        // El autor real ya se conoce en memoria: no hace falta releerlo de la base para el DTO.
+        return new NotaInternaDto(nota.getId(), nota.getContenido(), autor.nombreCompleto(), nota.getCreadoEn());
+    }
+
+    @Transactional
+    public void eliminarNota(Long colegioId, Long notaId) {
+        NotaInterna nota = notaInternaRepository.findByIdAndColegioId(notaId, colegioId)
+                .orElseThrow(() -> new NotFoundException("Nota no encontrada"));
+        notaInternaRepository.delete(nota);
+    }
+
+    private NotaInternaDto aDto(NotaInterna n) {
+        return new NotaInternaDto(n.getId(), n.getContenido(), n.getAutor().nombreCompleto(), n.getCreadoEn());
+    }
+
+    private void exigirExiste(Long colegioId) {
+        if (!colegioRepository.existsById(colegioId)) {
+            throw new NotFoundException("Colegio no encontrado");
+        }
     }
 
     @Transactional
@@ -97,6 +179,36 @@ public class ColegioService {
         return aDto(colegio);
     }
 
+    /** Registro manual: no hay cobro real involucrado, solo el estado que anota el proveedor. */
+    @Transactional
+    public ColegioDto actualizarPago(Long autorId, Long id, ActualizarPagoRequest req, String ip) {
+        Colegio colegio = colegioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Colegio no encontrado"));
+        colegio.setEstadoPago(req.estadoPago());
+        colegio.setProximoVencimiento(req.proximoVencimiento());
+
+        auditoria.registrar(AccionAuditoria.COLEGIO_PAGO_ACTUALIZADO, id, autorId,
+                colegio.getNombre() + " → " + req.estadoPago(), ip);
+        return aDto(colegio);
+    }
+
+    /**
+     * Avisa a todos los administradores de todos los colegios activos a la
+     * vez (mantenimiento programado, función nueva, etc.) — sin entrar
+     * colegio por colegio. Reutiliza NotificacionService: cada admin la ve
+     * en su campana y, si tiene notificaciones push activadas, también le
+     * llega como notificación del sistema.
+     */
+    @Transactional
+    public int enviarComunicadoGlobal(Long autorId, ComunicadoGlobalRequest req, String ip) {
+        List<Usuario> admins = usuarioRepository.findByRolAndColegio_ActivoTrue(Rol.ADMIN);
+        admins.forEach(admin -> notificacionService.crear(admin, "COMUNICADO", req.titulo(), req.mensaje()));
+
+        auditoria.registrar(AccionAuditoria.COMUNICADO_GLOBAL_ENVIADO, null, autorId,
+                req.titulo() + " → " + admins.size() + " administradores", ip);
+        return admins.size();
+    }
+
     private ColegioDto aDto(Colegio c) {
         return new ColegioDto(
                 c.getId(), c.getNombre(), c.getCodigoModular(), c.getRuc(), c.getColorMarca(),
@@ -105,7 +217,7 @@ public class ColegioService {
                 docenteRepository.countByColegioId(c.getId()),
                 apoderadoRepository.countByColegioId(c.getId()),
                 usuarioRepository.countByColegioIdAndEstado(c.getId(), EstadoUsuario.ACTIVO),
-                c.getCreadoEn());
+                c.getCreadoEn(), c.getEstadoPago(), c.getProximoVencimiento());
     }
 
     private String nulo(String v) {

@@ -1,5 +1,6 @@
 package com.willay.dto;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /** Colegio con sus métricas, para el panel del proveedor. */
@@ -14,5 +15,7 @@ public record ColegioDto(
         long docentes,
         long apoderados,
         long usuariosActivos,
-        OffsetDateTime creadoEn
+        OffsetDateTime creadoEn,
+        String estadoPago,
+        LocalDate proximoVencimiento
 ) {}

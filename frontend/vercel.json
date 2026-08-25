@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://api.willay.app/api/$1" },
+    { "source": "/actuator/(.*)", "destination": "https://api.willay.app/actuator/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

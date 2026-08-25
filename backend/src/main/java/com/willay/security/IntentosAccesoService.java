@@ -55,6 +55,17 @@ public class IntentosAccesoService {
 
     /** Registra un intento fallido; bloquea si se alcanzó el máximo. */
     public void registrarFallo(String identificador) {
+        registrarFallo(identificador, null);
+    }
+
+    /**
+     * Igual que registrarFallo(identificador), pero con el colegio ya resuelto
+     * por el llamador (por ejemplo, AuthService ya sabe a qué colegio
+     * pertenece el correo). Este servicio es genérico — no sabe si
+     * "identificador" es un correo o una IP — así que no puede resolverlo
+     * por su cuenta; para una IP simplemente no hay colegio que resolver.
+     */
+    public void registrarFallo(String identificador, Long colegioId) {
         String clave = normalizar(identificador);
         int total = fallos.computeIfAbsent(clave, k -> new AtomicInteger(0)).incrementAndGet();
         if (total >= maxIntentos) {
@@ -62,7 +73,7 @@ public class IntentosAccesoService {
             log.warn("Bloqueado temporalmente por intentos fallidos: {}", clave);
             // detalle solo: "clave" no siempre es una IP (puede ser un correo, o
             // "activacion:" + ip), y la columna ip está pensada para IPs reales.
-            auditoria.registrar(AccionAuditoria.ACCESO_BLOQUEADO_POR_INTENTOS, null, null, clave, null);
+            auditoria.registrar(AccionAuditoria.ACCESO_BLOQUEADO_POR_INTENTOS, colegioId, null, clave, null);
         }
     }
 

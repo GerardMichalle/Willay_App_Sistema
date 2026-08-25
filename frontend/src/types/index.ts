@@ -227,6 +227,40 @@ export interface ColegioApi {
   apoderados: number;
   usuariosActivos: number;
   creadoEn: string;
+  estadoPago: 'AL_DIA' | 'PENDIENTE' | 'VENCIDO';
+  proximoVencimiento: string | null;
+}
+
+export interface ChecklistColegioApi {
+  aulas: number;
+  docentes: number;
+  alumnos: number;
+  alumnosConTarjeta: number;
+  apoderadosConCuenta: number;
+  lectoresRegistrados: number;
+  tieneComunicadoPublicado: boolean;
+}
+
+export interface MetricasColegioApi {
+  lecturasSemana: number;
+  comunicadosPublicadosTotal: number;
+  ultimaActividad: string | null;
+}
+
+export interface AuditoriaGlobalApi {
+  id: number;
+  creadoEn: string;
+  colegioId: number | null;
+  colegioNombre: string | null;
+  accion: string;
+  detalle: string | null;
+}
+
+export interface NotaInternaApi {
+  id: number;
+  contenido: string;
+  autorNombre: string;
+  creadoEn: string;
 }
 
 export interface SetupEstado {
