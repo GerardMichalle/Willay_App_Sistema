@@ -3,6 +3,7 @@ package com.willay.controller;
 import com.willay.dto.ApoderadoDto;
 import com.willay.dto.CrearCuentaApoderadoRequest;
 import com.willay.dto.CuentaCreadaDto;
+import com.willay.dto.PaginaDto;
 import com.willay.service.ApoderadoService;
 import com.willay.util.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,11 +11,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/apoderados")
@@ -22,13 +22,18 @@ import java.util.List;
 @Tag(name = "Apoderados", description = "Familias vinculadas a los estudiantes")
 public class ApoderadoController {
 
+    private static final int TAMANO_MAX = 200;
+
     private final ApoderadoService apoderadoService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','DIRECCION')")
     @Operation(summary = "Lista los apoderados con sus hijos y estado de cuenta")
-    public List<ApoderadoDto> listar() {
-        return apoderadoService.listar(CurrentUser.colegioId());
+    public PaginaDto<ApoderadoDto> listar(
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "50") int tamano) {
+        return apoderadoService.listar(CurrentUser.colegioId(),
+                PageRequest.of(Math.max(pagina, 0), Math.min(Math.max(tamano, 1), TAMANO_MAX)));
     }
 
     @PostMapping("/{id}/cuenta")

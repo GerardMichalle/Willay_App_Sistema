@@ -285,14 +285,31 @@ export interface OpcionesGetAlumnos {
   sinTarjeta?: boolean;
 }
 
-/** GET /api/alumnos — el backend filtra por colegio y por el alcance del rol. */
+/**
+ * GET /api/alumnos — el backend filtra por colegio y por el alcance del rol.
+ * Para selectores/buscadores que necesitan "todos los que calcen" en una
+ * sola llamada (Matrículas, Conducta, Vincular tarjetas, cumpleaños del
+ * dashboard) — no para la tabla principal de Alumnos, que usa
+ * getAlumnosPagina() con paginación real visible.
+ */
 export async function getAlumnos(q?: string, opciones?: OpcionesGetAlumnos): Promise<Alumno[]> {
-  const params = new URLSearchParams({ tamano: '200' });
+  const r = await getAlumnosPagina(q, { ...opciones, tamano: 200 });
+  return r.contenido;
+}
+
+/** Igual que getAlumnos(), pero con paginación real: usada por la tabla de Alumnos.tsx. */
+export async function getAlumnosPagina(
+  q?: string, opciones?: OpcionesGetAlumnos & { pagina?: number; tamano?: number },
+): Promise<PaginaApi<Alumno>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones?.pagina ?? 0),
+    tamano: String(opciones?.tamano ?? 50),
+  });
   if (q) params.set('q', q);
   if (opciones?.aulaId) params.set('aulaId', String(opciones.aulaId));
   if (opciones?.sinTarjeta) params.set('sinTarjeta', 'true');
   const r = await http<PaginaApi<AlumnoApi>>(`/api/alumnos?${params}`, undefined, true);
-  return r.contenido.map(mapearAlumno);
+  return { ...r, contenido: r.contenido.map(mapearAlumno) };
 }
 
 export interface DatosAlumno {
@@ -452,8 +469,12 @@ export interface DatosDocente {
   aulaTutoriaId?: number | null;
 }
 
-export async function getDocentes(): Promise<DocenteApi[]> {
-  return http<DocenteApi[]>('/api/docentes', undefined, true);
+export async function getDocentes(opciones?: { pagina?: number; tamano?: number }): Promise<PaginaApi<DocenteApi>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones?.pagina ?? 0),
+    tamano: String(opciones?.tamano ?? 50),
+  });
+  return http<PaginaApi<DocenteApi>>(`/api/docentes?${params}`, undefined, true);
 }
 
 export async function crearDocente(datos: DatosDocente): Promise<DocenteApi> {
@@ -469,8 +490,12 @@ export async function cesarDocente(id: number): Promise<void> {
 }
 
 // ── Apoderados ──────────────────────────────────────────────────────
-export async function getApoderados(): Promise<ApoderadoApi[]> {
-  return http<ApoderadoApi[]>('/api/apoderados', undefined, true);
+export async function getApoderados(opciones?: { pagina?: number; tamano?: number }): Promise<PaginaApi<ApoderadoApi>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones?.pagina ?? 0),
+    tamano: String(opciones?.tamano ?? 50),
+  });
+  return http<PaginaApi<ApoderadoApi>>(`/api/apoderados?${params}`, undefined, true);
 }
 
 export async function crearCuentaApoderado(id: number, correo: string): Promise<{ codigoActivacion: string }> {
@@ -670,9 +695,26 @@ export async function getLecturasVivo(): Promise<LecturaVivo[]> {
   return http<LecturaVivo[]>('/api/asistencia/hoy', undefined, true);
 }
 
-/** GET /api/asistencia/historial — historial real por rango, acotado al alcance del rol. */
+/**
+ * GET /api/asistencia/historial — historial real por rango, acotado al
+ * alcance del rol. Para "Mi asistencia" (un solo alumno) una página amplia
+ * alcanza de sobra; la tabla "Historial" de Admin/Dirección usa
+ * getHistorialAsistenciaPagina() con paginación real visible.
+ */
 export async function getHistorialAsistencia(desde: string, hasta: string): Promise<AsistenciaHistorialApi[]> {
-  return http<AsistenciaHistorialApi[]>(`/api/asistencia/historial?desde=${desde}&hasta=${hasta}`, undefined, true);
+  const r = await getHistorialAsistenciaPagina(desde, hasta, { tamano: 200 });
+  return r.contenido;
+}
+
+export async function getHistorialAsistenciaPagina(
+  desde: string, hasta: string, opciones?: { pagina?: number; tamano?: number },
+): Promise<PaginaApi<AsistenciaHistorialApi>> {
+  const params = new URLSearchParams({
+    desde, hasta,
+    pagina: String(opciones?.pagina ?? 0),
+    tamano: String(opciones?.tamano ?? 50),
+  });
+  return http<PaginaApi<AsistenciaHistorialApi>>(`/api/asistencia/historial?${params}`, undefined, true);
 }
 
 /**
@@ -816,8 +858,22 @@ export interface DatosConducta {
   descripcion: string; fecha?: string | null;
 }
 
+/** Historial acotado (propio, de un hijo, o de una sola aula): alcanza con una sola página amplia. */
 export async function getConductaApi(): Promise<ConductaApi[]> {
-  return http<ConductaApi[]>('/api/conducta', undefined, true);
+  const r = await getConductaPagina({ tamano: 200 });
+  return r.contenido;
+}
+
+/** Tabla "Conducta" de Admin/Dirección/Docente, con paginación real y filtro de tipo opcional. */
+export async function getConductaPagina(opciones: {
+  tipo?: string; pagina?: number; tamano?: number;
+}): Promise<PaginaApi<ConductaApi>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones.pagina ?? 0),
+    tamano: String(opciones.tamano ?? 50),
+  });
+  if (opciones.tipo) params.set('tipo', opciones.tipo);
+  return http<PaginaApi<ConductaApi>>(`/api/conducta?${params}`, undefined, true);
 }
 
 export async function registrarConducta(d: DatosConducta): Promise<ConductaApi> {
@@ -872,8 +928,16 @@ export async function guardarConfiguracion(cambios: Record<string, string>): Pro
   return httpMetodo<Record<string, string>>('PUT', '/api/configuracion', cambios);
 }
 
-export async function getUsuariosAdmin(): Promise<UsuarioAdminApi[]> {
-  return http<UsuarioAdminApi[]>('/api/usuarios', undefined, true);
+export async function getUsuariosAdmin(opciones?: {
+  q?: string; estado?: string; pagina?: number; tamano?: number;
+}): Promise<PaginaApi<UsuarioAdminApi>> {
+  const params = new URLSearchParams({
+    pagina: String(opciones?.pagina ?? 0),
+    tamano: String(opciones?.tamano ?? 50),
+  });
+  if (opciones?.q) params.set('q', opciones.q);
+  if (opciones?.estado) params.set('estado', opciones.estado);
+  return http<PaginaApi<UsuarioAdminApi>>(`/api/usuarios?${params}`, undefined, true);
 }
 
 export async function cambiarEstadoUsuario(id: number, activo: boolean): Promise<UsuarioAdminApi> {

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Mono, Pill } from '../../components/ui';
 import { claseInput } from '../../components/Modal';
+import Paginacion from '../../components/Paginacion';
 import { getAuditoria, getColegios } from '../../services/api';
 import type { AuditoriaGlobalApi, ColegioApi } from '../../types';
 
@@ -115,25 +116,7 @@ export default function Auditoria() {
               ))}
             </Table>
 
-            {totalPaginas > 1 && (
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setPagina(p => Math.max(0, p - 1))}
-                  disabled={pagina === 0}
-                  className="grid place-items-center w-8 h-8 rounded-[8px] border border-line text-ink-2 hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <ChevronLeft size={15} />
-                </button>
-                <Mono className="!text-[12px]">Página {pagina + 1} de {totalPaginas}</Mono>
-                <button
-                  onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))}
-                  disabled={pagina >= totalPaginas - 1}
-                  className="grid place-items-center w-8 h-8 rounded-[8px] border border-line text-ink-2 hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <ChevronRight size={15} />
-                </button>
-              </div>
-            )}
+            <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
           </>
         )}
       </div>

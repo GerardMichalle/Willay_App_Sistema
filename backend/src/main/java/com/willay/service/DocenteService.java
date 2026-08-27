@@ -4,11 +4,14 @@ import com.willay.audit.AccionAuditoria;
 import com.willay.audit.AuditoriaService;
 import com.willay.dto.DocenteDto;
 import com.willay.dto.GuardarDocenteRequest;
+import com.willay.dto.PaginaDto;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,10 +40,9 @@ public class DocenteService {
     private final AuditoriaService auditoria;
 
     @Transactional(readOnly = true)
-    public List<DocenteDto> listar(Long colegioId) {
-        return docenteRepository.findByColegioIdOrderByIdAsc(colegioId).stream()
-                .map(this::aDto)
-                .toList();
+    public PaginaDto<DocenteDto> listar(Long colegioId, Pageable pageable) {
+        Page<Docente> pagina = docenteRepository.findByColegioIdOrderByIdAsc(colegioId, pageable);
+        return PaginaDto.de(pagina.map(this::aDto));
     }
 
     @Transactional

@@ -1,5 +1,6 @@
 package com.willay.service;
 
+import com.willay.dto.PaginaDto;
 import com.willay.dto.UsuarioAdminDto;
 import com.willay.entity.CodigoActivacion;
 import com.willay.entity.EstadoUsuario;
@@ -11,11 +12,12 @@ import com.willay.repository.CodigoActivacionRepository;
 import com.willay.repository.UsuarioRepository;
 import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 /**
  * Gestión de cuentas por parte del administrador del colegio.
@@ -33,9 +35,10 @@ public class UsuarioAdminService {
     private final CodigoActivacionService codigoActivacionService;
 
     @Transactional(readOnly = true)
-    public List<UsuarioAdminDto> listar(Long colegioId) {
-        return usuarioRepository.findByColegioIdOrderByApellidosAsc(colegioId)
-                .stream().map(this::aDto).toList();
+    public PaginaDto<UsuarioAdminDto> listar(Long colegioId, String q, EstadoUsuario estado, Pageable pageable) {
+        String busqueda = (q == null || q.isBlank()) ? "" : q.trim();
+        Page<Usuario> pagina = usuarioRepository.buscarCuentas(colegioId, busqueda, estado, pageable);
+        return PaginaDto.de(pagina.map(this::aDto));
     }
 
     @Transactional

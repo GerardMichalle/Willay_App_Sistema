@@ -4,6 +4,7 @@ import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, Mono, Pill, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import CodigoActivacionModal from '../../components/CodigoActivacionModal';
+import Paginacion from '../../components/Paginacion';
 import { getApoderados, reenviarCodigoUsuario, crearCuentaApoderado, eliminarApoderado } from '../../services/api';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useToast } from '../../context/ToastContext';
@@ -13,6 +14,9 @@ export default function Apoderados() {
   const confirmar = useConfirm();
   const toast = useToast();
   const [apoderados, setApoderados] = useState<ApoderadoApi[]>([]);
+  const [pagina, setPagina] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
+  const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [codigoMostrado, setCodigoMostrado] = useState<{ nombre: string; codigo: string } | null>(null);
@@ -23,11 +27,12 @@ export default function Apoderados() {
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
-    getApoderados()
-      .then(setApoderados)
+    setCargando(true);
+    getApoderados({ pagina, tamano: 50 })
+      .then(r => { setApoderados(r.contenido); setTotalPaginas(r.totalPaginas); setTotal(r.total); })
       .catch(e => setError(e instanceof Error ? e.message : 'No se pudo cargar la lista'))
       .finally(() => setCargando(false));
-  }, []);
+  }, [pagina]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -79,13 +84,14 @@ export default function Apoderados() {
     }
   }
 
+  // Exacto solo cuando todo cabe en una página (ver Docentes.tsx para el mismo criterio).
   const conCuenta = apoderados.filter(a => a.estadoCuenta === 'ACTIVO').length;
 
   return (
     <>
       <Topbar
         title="Apoderados"
-        subtitle={cargando ? 'Cargando…' : `${apoderados.length} familias · ${conCuenta} con cuenta web activa`}
+        subtitle={cargando ? 'Cargando…' : `${total} familias${totalPaginas <= 1 ? ` · ${conCuenta} con cuenta web activa` : ''}`}
       />
       <div className="px-4 sm:px-8 pb-10 max-w-[1280px] space-y-4">
 
@@ -178,6 +184,8 @@ export default function Apoderados() {
             ))}
           </Table>
         )}
+
+        <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 
       <Modal

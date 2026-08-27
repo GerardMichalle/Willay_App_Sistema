@@ -3,6 +3,7 @@ package com.willay.service;
 import com.willay.dto.AsistenciaHistorialDto;
 import com.willay.dto.LecturaDto;
 import com.willay.dto.LecturaRequest;
+import com.willay.dto.PaginaDto;
 import com.willay.dto.TarjetaSinAsignarDto;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
@@ -12,13 +13,14 @@ import com.willay.security.UsuarioPrincipal;
 import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -141,28 +143,26 @@ public class AsistenciaService {
      * hijos, alumno → él mismo, admin/dirección → todo el colegio).
      */
     @Transactional(readOnly = true)
-    public List<AsistenciaHistorialDto> historial(UsuarioPrincipal quien, LocalDate desde, LocalDate hasta) {
+    public PaginaDto<AsistenciaHistorialDto> historial(UsuarioPrincipal quien, LocalDate desde, LocalDate hasta, Pageable pageable) {
         List<Alumno> visibles = alumnoService.alumnosVisibles(quien);
-        if (visibles.isEmpty()) return List.of();
+        if (visibles.isEmpty()) return PaginaDto.de(Page.empty(pageable));
 
         Map<Long, Alumno> porId = visibles.stream()
                 .collect(Collectors.toMap(Alumno::getId, a -> a, (a, b) -> a));
 
-        return asistenciaDiaRepository.enRango(porId.keySet(), desde, hasta).stream()
-                .sorted(Comparator.comparing(Asistencia::getFecha).reversed())
-                .map(a -> {
-                    Alumno al = porId.get(a.getAlumno().getId());
-                    Aula aula = al.getAula();
-                    return new AsistenciaHistorialDto(
-                            al.getId(), al.getCodigo(), al.nombreCompleto(),
-                            aula != null ? aula.getGrado() + "°" : null,
-                            aula != null ? aula.getSeccion() : null,
-                            a.getFecha().toString(),
-                            a.getHoraEntrada() != null ? a.getHoraEntrada().format(HORA) : null,
-                            a.getHoraSalida() != null ? a.getHoraSalida().format(HORA) : null,
-                            a.getEstado());
-                })
-                .toList();
+        Page<Asistencia> pagina = asistenciaDiaRepository.enRango(porId.keySet(), desde, hasta, pageable);
+        return PaginaDto.de(pagina.map(a -> {
+            Alumno al = porId.get(a.getAlumno().getId());
+            Aula aula = al.getAula();
+            return new AsistenciaHistorialDto(
+                    al.getId(), al.getCodigo(), al.nombreCompleto(),
+                    aula != null ? aula.getGrado() + "°" : null,
+                    aula != null ? aula.getSeccion() : null,
+                    a.getFecha().toString(),
+                    a.getHoraEntrada() != null ? a.getHoraEntrada().format(HORA) : null,
+                    a.getHoraSalida() != null ? a.getHoraSalida().format(HORA) : null,
+                    a.getEstado());
+        }));
     }
 
     // ── Apoyo ────────────────────────────────────────────────────────

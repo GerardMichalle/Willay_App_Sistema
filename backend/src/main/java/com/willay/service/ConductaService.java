@@ -2,12 +2,16 @@ package com.willay.service;
 
 import com.willay.dto.ConductaDto;
 import com.willay.dto.GuardarConductaRequest;
+import com.willay.dto.PaginaDto;
 import com.willay.entity.*;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
 import com.willay.util.ZonaHoraria;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,27 +39,41 @@ public class ConductaService {
     private final NotificacionService notificacionService;
 
     @Transactional(readOnly = true)
-    public List<ConductaDto> listar(UsuarioPrincipal quien) {
-        return switch (quien.getRol()) {
-            case ALUMNO -> alumnoRepository.findByUsuarioId(quien.getId())
+    public PaginaDto<ConductaDto> listar(UsuarioPrincipal quien, String tipo, Pageable pageable) {
+        Page<Conducta> pagina = switch (quien.getRol()) {
+            case ALUMNO -> paginaEnMemoria(alumnoRepository.findByUsuarioId(quien.getId())
                     .map(a -> conductaRepository.findByAlumnoIdOrderByFechaDesc(a.getId()))
-                    .orElse(List.of()).stream().map(this::aDto).toList();
+                    .orElse(List.of()), tipo, pageable);
 
-            case APODERADO -> alumnoRepository.hijosDelApoderado(quien.getId()).stream()
+            case APODERADO -> paginaEnMemoria(alumnoRepository.hijosDelApoderado(quien.getId()).stream()
                     .flatMap(h -> conductaRepository.findByAlumnoIdOrderByFechaDesc(h.getId()).stream())
-                    .map(this::aDto).toList();
+                    .toList(), tipo, pageable);
 
             case DOCENTE -> {
                 List<Long> aulas = docenteAulaRepository.aulasDelUsuarioDocente(quien.getId());
-                yield conductaRepository.findByColegioIdOrderByFechaDesc(quien.getColegioId()).stream()
+                List<Conducta> propias = conductaRepository.findByColegioIdOrderByFechaDesc(quien.getColegioId()).stream()
                         .filter(c -> c.getAlumno().getAula() != null
                                 && aulas.contains(c.getAlumno().getAula().getId()))
-                        .map(this::aDto).toList();
+                        .toList();
+                yield paginaEnMemoria(propias, tipo, pageable);
             }
 
-            default -> conductaRepository.findByColegioIdOrderByFechaDesc(quien.getColegioId())
-                    .stream().map(this::aDto).toList();
+            default -> conductaRepository.buscar(quien.getColegioId(), tipo, pageable);
         };
+        return PaginaDto.de(pagina.map(this::aDto));
+    }
+
+    /**
+     * Docente/Alumno/Apoderado ven un conjunto ya acotado (su aula, o su
+     * propio historial): no vale la pena una consulta paginada aparte para
+     * cada uno, así que se pagina en memoria lo que ya se cargó.
+     */
+    private Page<Conducta> paginaEnMemoria(List<Conducta> todos, String tipo, Pageable pageable) {
+        List<Conducta> filtrados = tipo == null ? todos : todos.stream().filter(c -> tipo.equals(c.getTipo())).toList();
+        int desde = (int) pageable.getOffset();
+        if (desde >= filtrados.size()) return new PageImpl<>(List.of(), pageable, filtrados.size());
+        int hasta = Math.min(desde + pageable.getPageSize(), filtrados.size());
+        return new PageImpl<>(filtrados.subList(desde, hasta), pageable, filtrados.size());
     }
 
     @Transactional

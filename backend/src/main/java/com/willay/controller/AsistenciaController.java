@@ -3,6 +3,7 @@ package com.willay.controller;
 import com.willay.dto.AsistenciaHistorialDto;
 import com.willay.dto.LecturaDto;
 import com.willay.dto.LecturaRequest;
+import com.willay.dto.PaginaDto;
 import com.willay.entity.Rol;
 import com.willay.repository.DocenteAulaRepository;
 import com.willay.service.AsistenciaService;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +29,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Asistencia", description = "Recepción de lecturas y monitoreo en tiempo real")
 public class AsistenciaController {
+
+    private static final int TAMANO_MAX = 200;
 
     private final AsistenciaService asistenciaService;
     private final MonitorAsistenciaService monitor;
@@ -55,10 +59,13 @@ public class AsistenciaController {
     @GetMapping("/historial")
     @PreAuthorize("hasAnyRole('ADMIN','DIRECCION','DOCENTE','ALUMNO','APODERADO')")
     @Operation(summary = "Historial real de asistencia por rango de fechas, según el alcance del rol")
-    public List<AsistenciaHistorialDto> historial(
+    public PaginaDto<AsistenciaHistorialDto> historial(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        return asistenciaService.historial(CurrentUser.get(), desde, hasta);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "50") int tamano) {
+        return asistenciaService.historial(CurrentUser.get(), desde, hasta,
+                PageRequest.of(Math.max(pagina, 0), Math.min(Math.max(tamano, 1), TAMANO_MAX)));
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

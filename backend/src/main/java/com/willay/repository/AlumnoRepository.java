@@ -47,6 +47,7 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
     @Query("""
            select a from Alumno a
            where a.colegio.id = :colegioId
+             and a.estado <> 'RETIRADO'
              and (:q = '' or lower(concat(a.nombres, ' ', a.apellidos)) like lower(concat('%', :q, '%'))
                           or lower(a.codigo) like lower(concat('%', :q, '%')))
              and (:aulaId is null or a.aula.id = :aulaId)
@@ -65,6 +66,7 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
            select a from Alumno a
            where a.colegio.id = :colegioId
              and a.aula.id in :aulas
+             and a.estado <> 'RETIRADO'
              and (:q = '' or lower(concat(a.nombres, ' ', a.apellidos)) like lower(concat('%', :q, '%'))
                           or lower(a.codigo) like lower(concat('%', :q, '%')))
              and (:aulaId is null or a.aula.id = :aulaId)

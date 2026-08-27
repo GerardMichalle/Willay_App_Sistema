@@ -1,6 +1,8 @@
 package com.willay.repository;
 
 import com.willay.entity.Apoderado;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,5 +28,5 @@ public interface ApoderadoRepository extends JpaRepository<Apoderado, Long> {
 
     Optional<Apoderado> findByColegioIdAndDni(Long colegioId, String dni);
 
-    java.util.List<Apoderado> findByColegioIdOrderByApellidosAsc(Long colegioId);
+    Page<Apoderado> findByColegioIdOrderByApellidosAsc(Long colegioId, Pageable pageable);
 }

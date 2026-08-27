@@ -1,6 +1,8 @@
 package com.willay.repository;
 
 import com.willay.entity.Asistencia;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,7 +32,8 @@ public interface AsistenciaDiaRepository extends JpaRepository<Asistencia, Long>
            where a.alumno.id in :alumnos and a.fecha between :desde and :hasta
            order by a.fecha desc
            """)
-    List<Asistencia> enRango(@Param("alumnos") Collection<Long> alumnos,
+    Page<Asistencia> enRango(@Param("alumnos") Collection<Long> alumnos,
                              @Param("desde") LocalDate desde,
-                             @Param("hasta") LocalDate hasta);
+                             @Param("hasta") LocalDate hasta,
+                             Pageable pageable);
 }

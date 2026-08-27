@@ -3,7 +3,8 @@ import { Download, Loader2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, EstadoBadge, Mono, Button, FilterTabs } from '../../components/ui';
 import { claseInput } from '../../components/Modal';
-import { getHistorialAsistencia, exportarAsistencia } from '../../services/api';
+import Paginacion from '../../components/Paginacion';
+import { getHistorialAsistenciaPagina, exportarAsistencia } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import type { AsistenciaHistorialApi, EstadoAsistencia } from '../../types';
@@ -46,6 +47,9 @@ export default function Historial() {
   const [tab, setTab] = useState('Hoy');
   const [grado, setGrado] = useState('');
   const [filas, setFilas] = useState<AsistenciaHistorialApi[]>([]);
+  const [pagina, setPagina] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
+  const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,13 +57,17 @@ export default function Historial() {
     const { desde, hasta } = rangoPara(tab);
     setCargando(true);
     setError(null);
-    getHistorialAsistencia(desde, hasta)
-      .then(setFilas)
+    getHistorialAsistenciaPagina(desde, hasta, { pagina, tamano: 50 })
+      .then(r => { setFilas(r.contenido); setTotalPaginas(r.totalPaginas); setTotal(r.total); })
       .catch(e => setError(e instanceof Error ? e.message : 'No se pudo cargar el historial'))
       .finally(() => setCargando(false));
-  }, [tab]);
+  }, [tab, pagina]);
 
-  // El filtro de grado solo tiene sentido cuando el rol ve más de un aula (admin/dirección)
+  function cambiarTab(t: string) { setTab(t); setPagina(0); }
+
+  // El filtro de grado solo tiene sentido cuando el rol ve más de un aula
+  // (admin/dirección). Es de solo esta página: con más de una página puede
+  // haber otros grados en las demás — se aclara junto al selector.
   const grados = useMemo(() => {
     const set = new Set(filas.map(f => `${f.grado ?? ''} "${f.seccion ?? ''}"`).filter(g => g.trim() !== '""'));
     return Array.from(set).sort();
@@ -75,14 +83,16 @@ export default function Historial() {
         title={usuario?.rol === 'alumno' ? 'Mi asistencia'
           : usuario?.rol === 'apoderado' ? 'Asistencia de mis hijos'
           : 'Historial de asistencia'}
-        subtitle={cargando ? 'Cargando…' : `${filtradas.length} registro${filtradas.length === 1 ? '' : 's'} en este periodo`}
+        subtitle={cargando ? 'Cargando…' : grado
+          ? `${filtradas.length} registro${filtradas.length === 1 ? '' : 's'} en esta página con este grado`
+          : `${total} registro${total === 1 ? '' : 's'} en este periodo`}
       />
       <div className="px-4 sm:px-8 pb-10 max-w-[1280px] space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <FilterTabs tabs={TABS} active={tab} onChange={setTab} />
+          <FilterTabs tabs={TABS} active={tab} onChange={cambiarTab} />
           <div className="flex gap-2">
             {grados.length > 1 && (
-              <select value={grado} onChange={e => setGrado(e.target.value)} className={`${claseInput} !w-auto`}>
+              <select value={grado} onChange={e => setGrado(e.target.value)} className={`${claseInput} !w-auto`} title="Solo filtra lo cargado en esta página">
                 <option value="">Todos los grados</option>
                 {grados.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -125,6 +135,8 @@ export default function Historial() {
             ))}
           </Table>
         )}
+
+        {!grado && <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />}
       </div>
     </>
   );

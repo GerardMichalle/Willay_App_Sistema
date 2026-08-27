@@ -3,8 +3,9 @@ import { Download, Plus, CreditCard, ArrowRight, Loader2, Pencil, UserMinus, Sea
 import Topbar from '../../components/Topbar';
 import { Table, Tr, Td, Avatar, EstadoBadge, Mono, Pill, FilterTabs, Button } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
+import Paginacion from '../../components/Paginacion';
 import {
-  getAlumnos, getAulas, crearAlumno, actualizarAlumno, retirarAlumno, exportarAlumnos,
+  getAlumnosPagina, getAulas, crearAlumno, actualizarAlumno, retirarAlumno, exportarAlumnos,
   crearCuentaAlumno, type DatosAlumno,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +27,9 @@ export default function Alumnos() {
   const [aulas, setAulas] = useState<Aula[]>([]);
   const [tab, setTab] = useState('Todos');
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
+  const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,25 +46,41 @@ export default function Alumnos() {
   const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
-  const cargar = useCallback(async (q?: string) => {
+  const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      setAlumnos(await getAlumnos(q));
+      const r = await getAlumnosPagina(busqueda || undefined, {
+        sinTarjeta: tab === 'Sin tarjeta', pagina, tamano: 50,
+      });
+      setAlumnos(r.contenido);
+      setTotalPaginas(r.totalPaginas);
+      setTotal(r.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar la lista');
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [busqueda, tab, pagina]);
 
   useEffect(() => { if (esAdmin) getAulas().then(setAulas).catch(() => {}); }, [esAdmin]);
 
   // Búsqueda con retardo: no golpea el backend en cada tecla
   useEffect(() => {
-    const t = setTimeout(() => void cargar(busqueda || undefined), busqueda ? 350 : 0);
+    const t = setTimeout(() => void cargar(), busqueda ? 350 : 0);
     return () => clearTimeout(t);
-  }, [busqueda, cargar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargar]);
+
+  // "Sin tarjeta" es el único tab con equivalente real en el backend (ver
+  // OpcionesGetAlumnos): cambiar hacia/desde él sí cambia qué se pide al
+  // servidor, así que vuelve a la primera página. Puntuales/Tardanzas/
+  // Ausentes solo filtran lo ya cargado (ver nota en `filtrados`).
+  function cambiarTab(t: string) {
+    if (t === 'Sin tarjeta' || tab === 'Sin tarjeta') setPagina(0);
+    setTab(t);
+  }
+  function cambiarBusqueda(v: string) { setBusqueda(v); setPagina(0); }
 
   function abrirNuevo() {
     setEditando(null);
@@ -99,7 +119,7 @@ export default function Alumnos() {
     try {
       const r = await crearCuentaAlumno(editando.id, correoCuenta.trim(), editando.dni ? null : dniCuenta.trim());
       setCodigoGenerado(r.codigoActivacion);
-      await cargar(busqueda || undefined);
+      await cargar();
     } catch (e) {
       setErrorCuenta(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {
@@ -120,7 +140,7 @@ export default function Alumnos() {
       if (editando) await actualizarAlumno(editando.id, cuerpo);
       else await crearAlumno(cuerpo);
       setAbierto(false);
-      await cargar(busqueda || undefined);
+      await cargar();
     } catch (e) {
       setErrorForm(e instanceof Error ? e.message : 'No se pudo guardar');
     } finally {
@@ -136,21 +156,23 @@ export default function Alumnos() {
     }))) return;
     try {
       await retirarAlumno(a.id);
-      await cargar(busqueda || undefined);
+      await cargar();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo dar de baja');
     }
   }
 
-  const filtrados = alumnos.filter(a => {
-    if (a.estado === 'RETIRADO') return false;
-    if (tab === 'Puntuales') return a.estadoHoy === 'puntual';
-    if (tab === 'Tardanzas') return a.estadoHoy === 'tardanza';
-    if (tab === 'Ausentes') return a.estadoHoy === 'ausente';
-    if (tab === 'Sin tarjeta') return !a.tarjetaRfid;
-    return true;
-  });
+  // El backend ya excluye retirados y ya filtra "Sin tarjeta" (ver
+  // getAlumnosPagina). Puntuales/Tardanzas/Ausentes no tienen equivalente
+  // en la consulta (dependen de la asistencia de HOY, no de un campo del
+  // alumno), así que solo acotan lo ya cargado en esta página — con más de
+  // una página, puede haber más puntuales/tardanzas/ausentes en otras.
+  const filtrados = tab === 'Puntuales' ? alumnos.filter(a => a.estadoHoy === 'puntual')
+    : tab === 'Tardanzas' ? alumnos.filter(a => a.estadoHoy === 'tardanza')
+    : tab === 'Ausentes' ? alumnos.filter(a => a.estadoHoy === 'ausente')
+    : alumnos;
 
+  // Exacto solo cuando todo cabe en una página (mismo criterio que Docentes/Apoderados).
   const conTarjeta = alumnos.filter(a => a.tarjetaRfid).length;
   const formValido = datos.nombres.trim() !== '' && datos.apellidos.trim() !== '' && datos.aulaId > 0;
 
@@ -158,7 +180,7 @@ export default function Alumnos() {
     <>
       <Topbar
         title="Alumnos"
-        subtitle={cargando ? 'Cargando…' : `${alumnos.length} registrados · ${conTarjeta} tarjetas vinculadas`}
+        subtitle={cargando ? 'Cargando…' : `${total} registrados${totalPaginas <= 1 ? ` · ${conTarjeta} tarjetas vinculadas` : ''}`}
       />
       <div className="px-4 sm:px-8 pb-10 max-w-[1280px] space-y-4">
 
@@ -169,13 +191,13 @@ export default function Alumnos() {
         )}
 
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <FilterTabs tabs={TABS} active={tab} onChange={setTab} />
+          <FilterTabs tabs={TABS} active={tab} onChange={cambiarTab} />
           <div className="flex gap-2 flex-wrap">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
               <input
                 value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
+                onChange={e => cambiarBusqueda(e.target.value)}
                 placeholder="Buscar por nombre o código…"
                 className="w-[230px] rounded-[10px] border border-line bg-paper pl-9 pr-3 py-2 text-[12.5px] outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
               />
@@ -275,6 +297,10 @@ export default function Alumnos() {
             ))}
           </Table>
         )}
+
+        {tab === 'Todos' || tab === 'Sin tarjeta' ? (
+          <Paginacion pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+        ) : null}
       </div>
 
       <Modal

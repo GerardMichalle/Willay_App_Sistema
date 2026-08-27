@@ -4,12 +4,15 @@ import com.willay.audit.AccionAuditoria;
 import com.willay.audit.AuditoriaService;
 import com.willay.dto.ApoderadoDto;
 import com.willay.dto.CuentaCreadaDto;
+import com.willay.dto.PaginaDto;
 import com.willay.entity.*;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
 import com.willay.repository.*;
 import com.willay.security.UsuarioPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +31,9 @@ public class ApoderadoService {
     private final AuditoriaService auditoria;
 
     @Transactional(readOnly = true)
-    public List<ApoderadoDto> listar(Long colegioId) {
-        return apoderadoRepository.findByColegioIdOrderByApellidosAsc(colegioId).stream()
-                .map(this::aDto)
-                .toList();
+    public PaginaDto<ApoderadoDto> listar(Long colegioId, Pageable pageable) {
+        Page<Apoderado> pagina = apoderadoRepository.findByColegioIdOrderByApellidosAsc(colegioId, pageable);
+        return PaginaDto.de(pagina.map(this::aDto));
     }
 
     /**
