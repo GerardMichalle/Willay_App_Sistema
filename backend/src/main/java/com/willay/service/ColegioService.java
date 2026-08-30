@@ -217,8 +217,11 @@ public class ColegioService {
      */
     @Transactional
     public int enviarComunicadoGlobal(Long autorId, ComunicadoGlobalRequest req, String ip) {
+        // Tipo propio (no "COMUNICADO"): no corresponde a ningún Comunicado real
+        // de un colegio, así que el frontend no debe tratarlo como uno al hacer
+        // clic — solo marcarlo como leído.
         List<Usuario> admins = usuarioRepository.findByRolAndColegio_ActivoTrue(Rol.ADMIN);
-        admins.forEach(admin -> notificacionService.crear(admin, "COMUNICADO", req.titulo(), req.mensaje()));
+        admins.forEach(admin -> notificacionService.crear(admin, "AVISO_PLATAFORMA", req.titulo(), req.mensaje()));
 
         ComunicadoGlobal cg = new ComunicadoGlobal();
         cg.setTitulo(req.titulo());

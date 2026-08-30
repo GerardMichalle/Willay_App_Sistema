@@ -568,7 +568,12 @@ async function peticionBlob(ruta: string, mensajeError: string, reintento = fals
   const headers: Record<string, string> = {};
   const token = tokenActual();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(ruta, { headers });
+  let res: Response;
+  try {
+    res = await fetch(ruta, { headers });
+  } catch {
+    throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
+  }
 
   if (res.status === 401) {
     if (!reintento) {
@@ -809,13 +814,21 @@ export async function simularLectura(tarjeta: string, apiKey: string): Promise<L
 }
 
 // ── Notificaciones ──────────────────────────────────────────────────
-export async function getNotificaciones(): Promise<NotificacionApi[]> {
-  return http<NotificacionApi[]>('/api/notificaciones', undefined, true);
+/** tipos: uno o más tipos exactos (p. ej. ['COMUNICADO', 'AVISO_PLATAFORMA']); sin filtro si se omite. */
+export async function getNotificaciones(tipos?: string[]): Promise<NotificacionApi[]> {
+  const params = tipos && tipos.length > 0
+    ? `?${tipos.map(t => `tipo=${encodeURIComponent(t)}`).join('&')}`
+    : '';
+  return http<NotificacionApi[]>(`/api/notificaciones${params}`, undefined, true);
 }
 
 export async function getNoLeidas(): Promise<number> {
   const r = await http<{ total: number }>('/api/notificaciones/sin-leer', undefined, true);
   return r.total;
+}
+
+export async function marcarNotificacionLeida(id: number): Promise<void> {
+  await httpMetodo<void>('PATCH', `/api/notificaciones/${id}/leida`);
 }
 
 export async function marcarNotificacionesLeidas(): Promise<void> {

@@ -3,8 +3,10 @@ package com.willay.service;
 import com.willay.dto.NotificacionDto;
 import com.willay.entity.Notificacion;
 import com.willay.entity.Usuario;
+import com.willay.exception.NotFoundException;
 import com.willay.repository.NotificacionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,9 +42,10 @@ public class NotificacionService {
         pushNotificacionService.enviar(usuario.getId(), titulo, cuerpo);
     }
 
+    /** tipos = null trae todas; si no, solo las de esos tipos (agrupación por categoría del filtro de la campana). */
     @Transactional(readOnly = true)
-    public List<NotificacionDto> listar(Long usuarioId) {
-        return notificacionRepository.findTop30ByUsuarioIdOrderByCreadoEnDesc(usuarioId)
+    public List<NotificacionDto> listar(Long usuarioId, List<String> tipos) {
+        return notificacionRepository.buscar(usuarioId, tipos, PageRequest.of(0, 30))
                 .stream().map(this::aDto).toList();
     }
 
@@ -54,6 +57,15 @@ public class NotificacionService {
     @Transactional
     public void marcarTodasLeidas(Long usuarioId) {
         notificacionRepository.marcarTodasLeidas(usuarioId, OffsetDateTime.now());
+    }
+
+    /** Nunca confiar en que cualquier id se pueda marcar: primero se verifica que sea del usuario autenticado. */
+    @Transactional
+    public void marcarLeida(Long usuarioId, Long notificacionId) {
+        if (!notificacionRepository.existsByIdAndUsuarioId(notificacionId, usuarioId)) {
+            throw new NotFoundException("Notificación no encontrada");
+        }
+        notificacionRepository.marcarLeidaSiNoLoEstaba(notificacionId, OffsetDateTime.now());
     }
 
     private NotificacionDto aDto(Notificacion n) {

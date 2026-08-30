@@ -23,9 +23,9 @@ public class NotificacionController {
     private final NotificacionService notificacionService;
 
     @GetMapping
-    @Operation(summary = "Últimas notificaciones del usuario")
-    public List<NotificacionDto> listar() {
-        return notificacionService.listar(CurrentUser.usuarioId());
+    @Operation(summary = "Últimas notificaciones del usuario, con filtro de tipo(s) opcional")
+    public List<NotificacionDto> listar(@RequestParam(required = false) List<String> tipo) {
+        return notificacionService.listar(CurrentUser.usuarioId(), tipo);
     }
 
     @GetMapping("/sin-leer")
@@ -38,6 +38,13 @@ public class NotificacionController {
     @Operation(summary = "Marca todas como leídas")
     public ResponseEntity<Void> leerTodas() {
         notificacionService.marcarTodasLeidas(CurrentUser.usuarioId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/leida")
+    @Operation(summary = "Marca una sola notificación como leída (debe pertenecer al usuario autenticado)")
+    public ResponseEntity<Void> marcarLeida(@PathVariable Long id) {
+        notificacionService.marcarLeida(CurrentUser.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
 }

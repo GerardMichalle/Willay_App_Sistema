@@ -56,7 +56,7 @@ export default function App() {
             <Route path="/asistencia/historial" element={<Historial />} />
 
             {/* Formación */}
-            <Route path="/conducta" element={<Protegida roles={['admin', 'direccion', 'profesor']}><Conducta /></Protegida>} />
+            <Route path="/conducta" element={<Protegida roles={['admin', 'direccion', 'profesor', 'apoderado']}><Conducta /></Protegida>} />
             <Route path="/cursos" element={<CursosGratuitos />} />
             <Route path="/libretas" element={<Protegida roles={['profesor']}><Libretas /></Protegida>} />
 

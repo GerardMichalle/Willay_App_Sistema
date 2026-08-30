@@ -99,6 +99,7 @@ const NAV: Group[] = [
     items: [
       { to: '/asistencia/historial', label: 'Asistencia', icon: <ListOrdered size={IC} /> },
       { to: '/libreta', label: 'Libreta de notas', icon: <BookOpen size={IC} /> },
+      { to: '/conducta', label: 'Conducta', icon: <Flag size={IC} /> },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check, LogIn, LogOut, Megaphone, Flag, BookOpen, Loader2 } from 'lucide-react';
-import { getNotificaciones, getNoLeidas, marcarNotificacionesLeidas } from '../services/api';
+import { getNotificaciones, getNoLeidas, marcarNotificacionLeida, marcarNotificacionesLeidas } from '../services/api';
 import { Mono, cn } from './ui';
 import type { NotificacionApi } from '../types';
 
@@ -8,6 +9,7 @@ const ICONO: Record<string, React.ReactNode> = {
   INGRESO_HIJO: <LogIn size={13} />,
   SALIDA_HIJO: <LogOut size={13} />,
   COMUNICADO: <Megaphone size={13} />,
+  AVISO_PLATAFORMA: <Megaphone size={13} />,
   CONDUCTA: <Flag size={13} />,
   LIBRETA: <BookOpen size={13} />,
 };
@@ -16,14 +18,40 @@ const TONO: Record<string, string> = {
   INGRESO_HIJO: 'bg-ok-soft text-ok',
   SALIDA_HIJO: 'bg-info-soft text-info',
   COMUNICADO: 'bg-brand-soft text-brand',
+  AVISO_PLATAFORMA: 'bg-info-soft text-info',
   CONDUCTA: 'bg-warn-soft text-warn',
   LIBRETA: 'bg-info-soft text-info',
 };
 
+/**
+ * A dónde navegar al hacer clic, según el tipo. AVISO_PLATAFORMA (el aviso
+ * global del Superadmin a los administradores) queda deliberadamente fuera:
+ * no corresponde a ningún Comunicado real de un colegio, así que solo se
+ * marca como leído, sin navegar a ningún lado.
+ */
+const RUTA_POR_TIPO: Record<string, string> = {
+  INGRESO_HIJO: '/asistencia/historial',
+  SALIDA_HIJO: '/asistencia/historial',
+  COMUNICADO: '/comunicados',
+  CONDUCTA: '/conducta',
+  LIBRETA: '/libreta',
+};
+
+/** Categorías del filtro: agrupan tipos afines para no exigir un tipo exacto por pestaña. */
+const CATEGORIAS: { etiqueta: string; tipos?: string[] }[] = [
+  { etiqueta: 'Todas' },
+  { etiqueta: 'Asistencia', tipos: ['INGRESO_HIJO', 'SALIDA_HIJO'] },
+  { etiqueta: 'Comunicados', tipos: ['COMUNICADO', 'AVISO_PLATAFORMA'] },
+  { etiqueta: 'Conducta', tipos: ['CONDUCTA'] },
+  { etiqueta: 'Libretas', tipos: ['LIBRETA'] },
+];
+
 /** Campana del encabezado: consulta periódicamente los avisos del usuario. */
 export default function Notificaciones() {
+  const nav = useNavigate();
   const [abierto, setAbierto] = useState(false);
   const [lista, setLista] = useState<NotificacionApi[]>([]);
+  const [categoria, setCategoria] = useState(CATEGORIAS[0].etiqueta);
   const [sinLeer, setSinLeer] = useState(0);
   const [cargando, setCargando] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -46,22 +74,47 @@ export default function Notificaciones() {
     return () => document.removeEventListener('mousedown', alClic);
   }, [abierto]);
 
-  async function alternar() {
-    const nuevo = !abierto;
-    setAbierto(nuevo);
-    if (!nuevo) return;
+  const cargar = async (etiqueta: string) => {
     setCargando(true);
     try {
-      setLista(await getNotificaciones());
+      const tipos = CATEGORIAS.find(c => c.etiqueta === etiqueta)?.tipos;
+      setLista(await getNotificaciones(tipos));
     } catch { /* sin conexión */ } finally {
       setCargando(false);
     }
+  };
+
+  async function alternar() {
+    const nuevo = !abierto;
+    setAbierto(nuevo);
+    if (nuevo) await cargar(categoria);
+  }
+
+  function cambiarCategoria(etiqueta: string) {
+    setCategoria(etiqueta);
+    void cargar(etiqueta);
   }
 
   async function leerTodas() {
     await marcarNotificacionesLeidas();
     setSinLeer(0);
     setLista(l => l.map(n => ({ ...n, leida: true })));
+  }
+
+  /** Marca la individual como leída (si hacía falta) y navega, salvo AVISO_PLATAFORMA. */
+  async function alClicNotificacion(n: NotificacionApi) {
+    if (!n.leida) {
+      try {
+        await marcarNotificacionLeida(n.id);
+        setLista(l => l.map(x => x.id === n.id ? { ...x, leida: true } : x));
+        setSinLeer(s => Math.max(0, s - 1));
+      } catch { /* si falla, igual navega: no vale la pena bloquear al usuario por esto */ }
+    }
+    const ruta = RUTA_POR_TIPO[n.tipo];
+    if (ruta) {
+      setAbierto(false);
+      nav(ruta);
+    }
   }
 
   return (
@@ -81,14 +134,23 @@ export default function Notificaciones() {
 
       {abierto && (
         <div className="absolute right-0 top-12 z-50 w-[330px] max-h-[420px] flex flex-col rounded-[14px] border border-line bg-paper shadow-2xl animate-rise overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-            <p className="text-[13.5px] font-bold tracking-tight">Notificaciones</p>
-            {sinLeer > 0 && (
-              <button onClick={leerTodas}
-                className="flex items-center gap-1 text-[11.5px] font-semibold text-brand hover:text-brand-strong cursor-pointer">
-                <Check size={12} /> Marcar leídas
-              </button>
-            )}
+          <div className="px-4 py-3 border-b border-line space-y-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-[13.5px] font-bold tracking-tight">Notificaciones</p>
+              {sinLeer > 0 && (
+                <button onClick={leerTodas}
+                  className="flex items-center gap-1 text-[11.5px] font-semibold text-brand hover:text-brand-strong cursor-pointer">
+                  <Check size={12} /> Marcar leídas
+                </button>
+              )}
+            </div>
+            <select
+              value={categoria}
+              onChange={e => cambiarCategoria(e.target.value)}
+              className="w-full rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-[11.5px] text-ink-2 outline-none transition-all focus:border-brand focus:ring-[3px] focus:ring-brand-soft"
+            >
+              {CATEGORIAS.map(c => <option key={c.etiqueta} value={c.etiqueta}>{c.etiqueta}</option>)}
+            </select>
           </div>
 
           <div className="overflow-y-auto scroll-thin flex-1">
@@ -99,8 +161,9 @@ export default function Notificaciones() {
             ) : (
               lista.map(n => (
                 <div key={n.id}
-                  className={cn('flex gap-3 px-4 py-3 border-b border-line last:border-0 transition-colors',
-                    !n.leida && 'bg-brand-faint')}>
+                  onClick={() => void alClicNotificacion(n)}
+                  className={cn('flex gap-3 px-4 py-3 border-b border-line last:border-0 transition-colors cursor-pointer hover:bg-canvas',
+                    !n.leida && 'bg-brand-faint hover:bg-brand-faint')}>
                   <span className={cn('grid place-items-center w-7 h-7 rounded-full shrink-0',
                     TONO[n.tipo] ?? 'bg-canvas text-ink-3')}>
                     {ICONO[n.tipo] ?? <Bell size={13} />}
