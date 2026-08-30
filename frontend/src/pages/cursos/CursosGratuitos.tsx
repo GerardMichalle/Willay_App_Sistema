@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FileText, PlayCircle, Book, Image as ImageIcon, Plus, Upload,
-  Pencil, Trash2, Download, Users, Sparkles, FolderPlus, PiggyBank,
+  Pencil, Trash2, Users, Sparkles, FolderPlus, PiggyBank,
   Wallet, Store, GraduationCap, Loader2, Globe,
 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Button, cn } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
+import ModalVisorCurso from '../../components/cursos/ModalVisorCurso';
 import {
   getCursosGratuitos, crearCurso, actualizarCurso, eliminarCurso,
   crearCategoriaCurso, eliminarCategoriaCurso, agregarRecursoCurso, eliminarRecursoCurso,
-  subirDocumento, getEnlaceArchivo, uuidDeRutaArchivo,
+  subirDocumento,
   type CursoApiCatalogo, type DatosCurso, type DatosRecurso, type RecursoApi,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -60,6 +61,10 @@ export default function CursosGratuitos() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
+
+  // Visor del curso (reproductor + capítulos)
+  const [visorAbierto, setVisorAbierto] = useState(false);
+  const [recursoVisor, setRecursoVisor] = useState<RecursoApi | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -154,28 +159,9 @@ export default function CursosGratuitos() {
     }
   }
 
-  /** Pide el enlace firmado justo antes de abrir o descargar: nunca se guarda ni se muestra crudo. */
-  async function abrirRecurso(r: RecursoApi) {
-    if (!r.urlArchivo) return;
-    try {
-      const url = await getEnlaceArchivo(uuidDeRutaArchivo(r.urlArchivo));
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'No se pudo abrir el archivo');
-    }
-  }
-
-  async function descargarRecurso(r: RecursoApi) {
-    if (!r.urlArchivo) return;
-    try {
-      const url = await getEnlaceArchivo(uuidDeRutaArchivo(r.urlArchivo));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = ''; // el backend ya manda el nombre real (con extensión) en Content-Disposition
-      a.click();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'No se pudo descargar el archivo');
-    }
+  function abrirVisor(r: RecursoApi) {
+    setRecursoVisor(r);
+    setVisorAbierto(true);
   }
 
   async function quitarRecurso(recursoId: number) {
@@ -384,55 +370,59 @@ export default function CursosGratuitos() {
                     <p className="text-[13px] font-semibold">Este módulo aún no tiene material</p>
                   </div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {activa.recursos.map((r, i) => {
                       const t = TIPO[r.tipo] ?? TIPO.PDF;
                       const ilu = ILUSTRACION[i % ILUSTRACION.length];
                       return (
-                        <div key={r.id} className="card p-0 overflow-hidden group">
-                          <div className={cn('h-[124px] grid place-items-center relative', ilu.fondo)}>
-                            <span className={cn('opacity-70', ilu.texto)}>
-                              {r.tipo === 'VIDEO' ? <PlayCircle size={46} strokeWidth={1.4} />
-                                : r.tipo === 'LIBRO' ? <Book size={44} strokeWidth={1.4} />
-                                : r.tipo === 'IMAGEN' ? <ImageIcon size={44} strokeWidth={1.4} />
-                                : <FileText size={44} strokeWidth={1.4} />}
+                        <button
+                          key={r.id}
+                          onClick={() => abrirVisor(r)}
+                          className="text-left rounded-[16px] overflow-hidden border border-line group cursor-pointer transition-shadow hover:shadow-lg"
+                        >
+                          {/* Miniatura: siempre oscura (estilo "video"), sin depender del tema claro/oscuro del sitio. */}
+                          <div className="aspect-video relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1A1B1E, #0C0D0E)' }}>
+                            <div className="absolute inset-0 opacity-[.10]"
+                              style={{ backgroundImage: 'radial-gradient(circle, #fff 1.2px, transparent 1.2px)', backgroundSize: '16px 16px' }} />
+                            <div className="absolute -right-8 -top-10 w-36 h-36 rounded-full bg-brand/40 blur-3xl" />
+
+                            <span className={cn('absolute inset-0 grid place-items-center opacity-90', ilu.texto)}>
+                              {r.tipo === 'VIDEO' ? <PlayCircle size={40} strokeWidth={1.3} />
+                                : r.tipo === 'LIBRO' ? <Book size={38} strokeWidth={1.3} />
+                                : r.tipo === 'IMAGEN' ? <ImageIcon size={38} strokeWidth={1.3} />
+                                : <FileText size={38} strokeWidth={1.3} />}
                             </span>
-                            <span className={cn('absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1 bg-paper/90 backdrop-blur text-[10.5px] font-semibold', t.cls)}>
+
+                            <span className={cn('absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1 bg-paper/95 backdrop-blur text-[10.5px] font-semibold', t.cls)}>
                               {t.icon} {t.label}
                             </span>
                             {esProveedor && (
-                              <button onClick={() => quitarRecurso(r.id)} title="Eliminar"
-                                className="absolute top-3 right-3 grid place-items-center w-7 h-7 rounded-[8px] bg-paper/90 backdrop-blur text-ink-3 hover:text-bad transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+                              <button onClick={e => { e.stopPropagation(); quitarRecurso(r.id); }} title="Eliminar"
+                                className="absolute top-2.5 right-2.5 grid place-items-center w-7 h-7 rounded-[8px] bg-paper/95 backdrop-blur text-ink-3 hover:text-bad transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
                                 <Trash2 size={12} />
                               </button>
                             )}
-                          </div>
+                            {(r.duracion || r.tamano) && (
+                              <span className="absolute bottom-2.5 right-2.5 rounded-[6px] bg-black/70 text-white text-[10.5px] font-mono px-2 py-0.5">
+                                {r.duracion || r.tamano}
+                              </span>
+                            )}
 
-                          <div className="p-5">
-                            <p className="text-[14px] font-bold tracking-tight leading-snug">{r.titulo}</p>
-                            <p className="text-[11.5px] text-ink-3 mt-1.5 font-mono">
-                              {t.label}{r.tamano ? ` · ${r.tamano}` : ''}{r.duracion ? ` · ${r.duracion}` : ''}
-                            </p>
-                            <div className="flex gap-2 mt-4">
-                              <button
-                                onClick={() => void abrirRecurso(r)}
-                                disabled={!r.urlArchivo}
-                                className={cn('flex-1 inline-flex items-center justify-center gap-1.5 rounded-[10px] px-3 py-2.5 text-[12.5px] font-semibold transition-colors cursor-pointer',
-                                  r.urlArchivo ? 'bg-brand text-white hover:bg-brand-strong' : 'bg-canvas text-ink-3 pointer-events-none')}
-                              >
-                                {r.tipo === 'VIDEO' ? <><PlayCircle size={14} /> Reproducir</> : <><Book size={14} /> Ver</>}
-                              </button>
-                              <button
-                                onClick={() => void descargarRecurso(r)}
-                                disabled={!r.urlArchivo}
-                                className={cn('inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-line px-3 py-2.5 text-[12.5px] font-semibold transition-colors cursor-pointer',
-                                  r.urlArchivo ? 'text-ink-2 hover:text-ink hover:border-line-2' : 'text-ink-3 pointer-events-none')}
-                              >
-                                <Download size={14} /> Descargar
-                              </button>
+                            {/* Reveal al pasar el mouse: botón de reproducir, mismo lenguaje que el resto del sistema */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-colors flex items-center justify-center pointer-events-none">
+                              <span className="grid place-items-center w-12 h-12 rounded-full bg-white text-brand opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all shadow-xl">
+                                <PlayCircle size={22} />
+                              </span>
                             </div>
                           </div>
-                        </div>
+
+                          <div className="p-4 bg-paper">
+                            <p className="text-[13.5px] font-bold tracking-tight leading-snug line-clamp-2">{r.titulo}</p>
+                            <p className="text-[11px] text-ink-3 mt-1.5 font-mono">
+                              {t.label}{r.tamano ? ` · ${r.tamano}` : ''}
+                            </p>
+                          </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -553,6 +543,13 @@ export default function CursosGratuitos() {
           )}
         </div>
       </Modal>
+
+      <ModalVisorCurso
+        curso={curso ?? null}
+        recursoInicial={recursoVisor}
+        abierto={visorAbierto}
+        onCerrar={() => setVisorAbierto(false)}
+      />
     </>
   );
 }
