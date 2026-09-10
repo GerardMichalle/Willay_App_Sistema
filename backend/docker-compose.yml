@@ -36,12 +36,12 @@ services:
       # ver los correos de verdad en desarrollo.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-Willay <onboarding@resend.dev>}
-      # Mismo par de claves que se entregó para el .env del servidor: reutilizarlas
-      # en desarrollo es seguro (no son un secreto compartido con nadie más, solo
-      # identifican a "este servidor" ante los navegadores) y permite probar
-      # notificaciones push reales en local sin generar un segundo par.
-      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BP9Gqj-xWMXX2QrOjgM1zvoUaRjTt_xn6MS40m0hJd0jx0aTflIKtpBv1QUR99uAE3QFX-U_O_7zzaEJy79hA54}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-yGJOblVXq-a1AnLtQrnMQ5EVE0R4mJX9J7Bgmi9IpfM}
+      # Claves VAPID de las notificaciones push. Igual que RESEND: sin claves,
+      # PushNotificacionService lo detecta y solo lo avisa en el log, no intenta
+      # enviar nada. NUNCA se ponen aquí en claro (esto está versionado): para
+      # probar push real en local, cópialas en backend/.env — Compose lo carga solo.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:soporte@willay.app}
     ports:
       - "8080:8080"

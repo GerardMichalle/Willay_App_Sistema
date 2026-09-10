@@ -21,9 +21,9 @@ Requiere el backend Spring Boot corriendo en `:8080` (`docker compose up` en
 - `src/index.css` — tokens de color y tipografía (@theme de Tailwind v4).
 - `src/pages/**` — un archivo por módulo.
 
-## Integración futura (Spring Boot)
+## Integración con el backend (Spring Boot)
 
-- Proxy ya configurado en `vite.config.ts`: `/api` → `http://localhost:8080`.
+- Proxy configurado en `vite.config.ts`: `/api` y `/actuator` → `http://localhost:8080`.
 - Lector físico → `POST /api/asistencia/lectura` → SSE `/api/asistencia/stream`
   → GateTicker y Control en vivo.
 - Login → `POST /api/auth/login` (JWT).
