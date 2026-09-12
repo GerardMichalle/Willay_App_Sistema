@@ -52,6 +52,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
+      # Push nativo (app Android). Igual de opcional que VAPID arriba: es el
+      # JSON completo de la cuenta de servicio de Firebase, una sola línea.
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       LOG_FILE: /var/log/willay/willay.log
     volumes:

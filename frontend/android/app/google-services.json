@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "506572595005",
+    "project_id": "willay-3017f",
+    "storage_bucket": "willay-3017f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506572595005:android:9ac2c30c0eef1b42d62f54",
+        "android_client_info": {
+          "package_name": "com.willay.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyByuqvIsg9vK0WwgZ4dXoBHXDw5Cb4g3ZA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

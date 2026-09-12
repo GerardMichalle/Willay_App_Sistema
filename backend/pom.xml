@@ -132,6 +132,15 @@
       <version>0.9.6</version>
     </dependency>
 
+    <!-- Notificaciones push nativas (Firebase Cloud Messaging), en paralelo
+         al Web Push de arriba: ese es para navegador, este es para la app
+         Android empaquetada con Capacitor. -->
+    <dependency>
+      <groupId>com.google.firebase</groupId>
+      <artifactId>firebase-admin</artifactId>
+      <version>9.3.0</version>
+    </dependency>
+
     <!-- Productividad -->
     <dependency>
       <groupId>org.projectlombok</groupId>

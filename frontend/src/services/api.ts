@@ -3,6 +3,7 @@
  * Cada función habla directamente con el backend Spring Boot
  * (proxy de Vite: /api → http://localhost:8080).
  */
+import { Capacitor } from '@capacitor/core';
 import type {
   Rol, Usuario, Alumno, Aula, DocenteApi, ApoderadoApi,
   ColegioApi, ChecklistColegioApi, MetricasColegioApi, AuditoriaGlobalApi, NotaInternaApi, ComunicadoGlobalApi, SetupEstado, Importacion, MatriculaResultado,
@@ -13,6 +14,16 @@ import type {
 
 // ── Conexión real con el backend (Spring Boot en :8080, proxy de Vite) ──
 const CLAVE_SESION = 'willay-sesion';
+
+/**
+ * En web las rutas quedan relativas a propósito: el proxy de Vite (dev) y el
+ * rewrite de vercel.json (producción) las resuelven contra el backend. La
+ * app nativa (Capacitor) no pasa por ninguno de los dos — el WebView sirve
+ * el build empaquetado desde su propio origen — así que ahí sí hace falta
+ * apuntar directo al backend real.
+ */
+const ORIGEN_API = Capacitor.isNativePlatform() ? 'https://api.willay.app' : '';
+function url(ruta: string): string { return `${ORIGEN_API}${ruta}`; }
 
 interface Sesion {
   accessToken: string;
@@ -62,7 +73,7 @@ async function renovarToken(): Promise<ResultadoRenovacion> {
   if (!actual) return 'rechazada';
   let res: Response;
   try {
-    res = await fetch('/api/auth/refresh', {
+    res = await fetch(url('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: actual.refreshToken }),
@@ -115,7 +126,7 @@ async function peticion<T>(metodo: string, ruta: string, body: unknown, conAuth:
   }
   let res: Response;
   try {
-    res = await fetch(ruta, { method: metodo, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(url(ruta), { method: metodo, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
   }
@@ -223,6 +234,15 @@ export async function suscribirPush(suscripcion: PushSubscriptionJSON): Promise<
 
 export async function desuscribirPush(endpoint: string): Promise<void> {
   await httpMetodo<void>('DELETE', '/api/push/suscribir', { endpoint });
+}
+
+// ── Notificaciones push nativas de la app Android (Firebase Cloud Messaging) ──
+export async function registrarTokenFcm(token: string): Promise<void> {
+  await http<void>('/api/push/fcm', { token }, true);
+}
+
+export async function eliminarTokenFcm(token: string): Promise<void> {
+  await httpMetodo<void>('DELETE', '/api/push/fcm', { token });
 }
 
 // ── Activación de cuenta (flujo real de 2 pasos) ──
@@ -531,7 +551,7 @@ async function subirArchivo<T>(ruta: string, archivo: File, reintento = false): 
   const token = tokenActual();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(ruta, { method: 'POST', headers, body: form });
+  const res = await fetch(url(ruta), { method: 'POST', headers, body: form });
 
   if (res.status === 401) {
     if (!reintento) {
@@ -570,7 +590,7 @@ async function peticionBlob(ruta: string, mensajeError: string, reintento = fals
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
   try {
-    res = await fetch(ruta, { headers });
+    res = await fetch(url(ruta), { headers });
   } catch {
     throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
   }
@@ -685,7 +705,7 @@ export async function getAuditoria(opciones: {
 
 /** /actuator/health es público (ver SecurityConfig): no hace falta token para consultarlo. */
 export async function getSaludSistema(): Promise<boolean> {
-  const res = await fetch('/actuator/health');
+  const res = await fetch(url('/actuator/health'));
   if (!res.ok) return false;
   const cuerpo = await res.json();
   return cuerpo?.status === 'UP';
@@ -754,7 +774,7 @@ function abrirCanalSSE<T>(
     const token = tokenActual();
     if (!token || cerrado) return;
 
-    fuente = new EventSource(`${ruta}?token=${encodeURIComponent(token)}`);
+    fuente = new EventSource(`${url(ruta)}?token=${encodeURIComponent(token)}`);
     fuente.addEventListener(nombreEvento, e => {
       try { alRecibir(JSON.parse((e as MessageEvent).data) as T); } catch { /* dato inválido */ }
     });
@@ -800,7 +820,7 @@ export function abrirCanalVinculacion(
 
 /** Simula una pasada de tarjeta. Útil para probar sin el lector físico. */
 export async function simularLectura(tarjeta: string, apiKey: string): Promise<LecturaVivo> {
-  const res = await fetch('/api/asistencia/lectura', {
+  const res = await fetch(url('/api/asistencia/lectura'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
     body: JSON.stringify({ tarjeta }),

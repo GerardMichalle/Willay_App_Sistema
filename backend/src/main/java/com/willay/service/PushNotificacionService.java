@@ -1,7 +1,16 @@
 package com.willay.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
+import com.willay.entity.FcmToken;
 import com.willay.entity.PushSuscripcion;
+import com.willay.repository.FcmTokenRepository;
 import com.willay.repository.PushSuscripcionRepository;
 import com.willay.repository.UsuarioRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +24,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.List;
 import java.util.Map;
@@ -36,26 +47,55 @@ import java.util.Map;
 public class PushNotificacionService {
 
     private final PushSuscripcionRepository suscripcionRepository;
+    private final FcmTokenRepository fcmTokenRepository;
     private final UsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;
     private final String clavePublica;
     private final String clavePrivada;
     private final String subject;
+    private final boolean firebaseListo;
 
     public PushNotificacionService(
             PushSuscripcionRepository suscripcionRepository,
+            FcmTokenRepository fcmTokenRepository,
             UsuarioRepository usuarioRepository,
             ObjectMapper objectMapper,
             @Value("${willay.push.vapid-public-key:}") String clavePublica,
             @Value("${willay.push.vapid-private-key:}") String clavePrivada,
-            @Value("${willay.push.vapid-subject:mailto:soporte@willay.app}") String subject) {
+            @Value("${willay.push.vapid-subject:mailto:soporte@willay.app}") String subject,
+            @Value("${willay.push.firebase-credentials-json:}") String firebaseCredencialesJson) {
         this.suscripcionRepository = suscripcionRepository;
+        this.fcmTokenRepository = fcmTokenRepository;
         this.usuarioRepository = usuarioRepository;
         this.objectMapper = objectMapper;
         this.clavePublica = clavePublica;
         this.clavePrivada = clavePrivada;
         this.subject = subject;
         Security.addProvider(new BouncyCastleProvider());
+        this.firebaseListo = inicializarFirebase(firebaseCredencialesJson);
+    }
+
+    /**
+     * Best-effort, igual que VAPID: sin credenciales configuradas (o si son
+     * inválidas), el push nativo simplemente se omite — nunca debe impedir
+     * que el backend arranque.
+     */
+    private boolean inicializarFirebase(String credencialesJson) {
+        if (credencialesJson.isBlank()) {
+            log.info("FIREBASE_CREDENTIALS_JSON no configurado: push nativo (FCM) deshabilitado");
+            return false;
+        }
+        try {
+            if (FirebaseApp.getApps().isEmpty()) {
+                GoogleCredentials credenciales = GoogleCredentials.fromStream(
+                        new ByteArrayInputStream(credencialesJson.getBytes(StandardCharsets.UTF_8)));
+                FirebaseApp.initializeApp(FirebaseOptions.builder().setCredentials(credenciales).build());
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("No se pudo inicializar Firebase (push nativo deshabilitado): {}", e.getMessage());
+            return false;
+        }
     }
 
     /** La necesita el navegador para suscribirse; vacía si VAPID no está configurado. */
@@ -79,8 +119,27 @@ public class PushNotificacionService {
         suscripcionRepository.deleteByUsuarioIdAndEndpoint(usuarioId, endpoint);
     }
 
+    /** Da de alta (o refresca, si el token ya existía) el dispositivo Android para push nativo. */
+    @Transactional
+    public void registrarTokenFcm(Long usuarioId, String token) {
+        FcmToken t = fcmTokenRepository.findByToken(token).orElseGet(FcmToken::new);
+        t.setUsuario(usuarioRepository.getReferenceById(usuarioId));
+        t.setToken(token);
+        fcmTokenRepository.save(t);
+    }
+
+    @Transactional
+    public void eliminarTokenFcm(Long usuarioId, String token) {
+        fcmTokenRepository.deleteByUsuarioIdAndToken(usuarioId, token);
+    }
+
     @Transactional
     public void enviar(Long usuarioId, String titulo, String cuerpo) {
+        enviarPorWebPush(usuarioId, titulo, cuerpo);
+        enviarPorFcm(usuarioId, titulo, cuerpo);
+    }
+
+    private void enviarPorWebPush(Long usuarioId, String titulo, String cuerpo) {
         if (clavePublica.isBlank() || clavePrivada.isBlank()) {
             log.info("VAPID no configurado: notificación push a usuario {} omitida (\"{}\")", usuarioId, titulo);
             return;
@@ -97,6 +156,30 @@ public class PushNotificacionService {
             }
         } catch (Exception e) {
             log.warn("No se pudo enviar la notificación push a usuario {}: {}", usuarioId, e.getMessage());
+        }
+    }
+
+    private void enviarPorFcm(Long usuarioId, String titulo, String cuerpo) {
+        if (!firebaseListo) return;
+        List<FcmToken> tokens = fcmTokenRepository.findByUsuarioId(usuarioId);
+        if (tokens.isEmpty()) return;
+
+        com.google.firebase.messaging.Notification notificacion =
+                com.google.firebase.messaging.Notification.builder().setTitle(titulo).setBody(cuerpo).build();
+
+        for (FcmToken t : tokens) {
+            try {
+                Message mensaje = Message.builder().setToken(t.getToken()).setNotification(notificacion).build();
+                FirebaseMessaging.getInstance().send(mensaje);
+            } catch (FirebaseMessagingException e) {
+                if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED
+                        || e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT) {
+                    fcmTokenRepository.delete(t);
+                }
+                log.warn("No se pudo enviar push nativo al token {}: {}", t.getId(), e.getMessage());
+            } catch (Exception e) {
+                log.warn("No se pudo enviar push nativo al token {}: {}", t.getId(), e.getMessage());
+            }
         }
     }
 

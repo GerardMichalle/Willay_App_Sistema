@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Willay</string>
+    <string name="title_activity_main">Willay</string>
+    <string name="package_name">com.willay.app</string>
+    <string name="custom_url_scheme">com.willay.app</string>
+</resources>

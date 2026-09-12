@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { Search, KeyRound, Camera, Loader2, Bell, BellOff, BellRing } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import Notificaciones from './Notificaciones';
 import CambiarPasswordModal from './CambiarPasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from './ui';
-import { subirFotoPerfil, getClavePublicaPush, suscribirPush, desuscribirPush } from '../services/api';
+import {
+  subirFotoPerfil, getClavePublicaPush, suscribirPush, desuscribirPush,
+  registrarTokenFcm, eliminarTokenFcm,
+} from '../services/api';
 import { useToast } from '../context/ToastContext';
 import type { Rol } from '../types';
+
+/** Recordado localmente para poder dar de baja el mismo token al desactivar. */
+const CLAVE_TOKEN_FCM = 'willay-fcm-token';
 
 /**
  * Roles habilitados para cambiar su foto desde este menú. El alumno queda
@@ -44,6 +52,9 @@ function esInstaladaComoApp() {
 
 /** El navegador soporta la API, pero en iOS sin instalar no sirve de nada intentarlo. */
 function pushDisponibleAqui(): 'ok' | 'sin-soporte' | 'ios-sin-instalar' {
+  // La app nativa (Capacitor) tiene su propio canal (FCM, más abajo) — no
+  // depende del Service Worker / PushManager del navegador.
+  if (Capacitor.isNativePlatform()) return 'ok';
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
     return 'sin-soporte';
   }
@@ -88,19 +99,44 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
     }
   }
 
-  // Al cargar, revisa si este navegador ya tiene una suscripción activa
-  // (por ejemplo, se activó ayer y hoy solo se está recargando la página).
+  // Al cargar, revisa si este navegador/dispositivo ya tiene una suscripción
+  // activa (por ejemplo, se activó ayer y hoy solo se está recargando).
   useEffect(() => {
     if (soportePush !== 'ok') return;
+    if (Capacitor.isNativePlatform()) {
+      setPushActivo(!!localStorage.getItem(CLAVE_TOKEN_FCM));
+      return;
+    }
     navigator.serviceWorker.getRegistration('/sw.js')
       .then(reg => reg?.pushManager.getSubscription())
       .then(sub => setPushActivo(!!sub))
       .catch(() => {});
   }, [soportePush]);
 
+  /** Pide el token FCM del dispositivo vía el plugin nativo de Capacitor. */
+  async function obtenerTokenFcm(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      PushNotifications.addListener('registration', t => resolve(t.value));
+      PushNotifications.addListener('registrationError', e => reject(new Error(e.error)));
+      void PushNotifications.register();
+    });
+  }
+
   async function activarPush() {
     setCargandoPush(true);
     try {
+      if (Capacitor.isNativePlatform()) {
+        const permiso = await PushNotifications.requestPermissions();
+        if (permiso.receive !== 'granted') {
+          toast('No diste permiso para las notificaciones. Puedes activarlo luego desde los ajustes de la app.', 'info');
+          return;
+        }
+        const token = await obtenerTokenFcm();
+        await registrarTokenFcm(token);
+        localStorage.setItem(CLAVE_TOKEN_FCM, token);
+        setPushActivo(true);
+        return;
+      }
       const permiso = await Notification.requestPermission();
       if (permiso !== 'granted') {
         toast('No diste permiso para las notificaciones. Puedes activarlo luego desde los ajustes del navegador.', 'info');
@@ -125,6 +161,15 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   async function desactivarPush() {
     setCargandoPush(true);
     try {
+      if (Capacitor.isNativePlatform()) {
+        const token = localStorage.getItem(CLAVE_TOKEN_FCM);
+        if (token) {
+          await eliminarTokenFcm(token);
+          localStorage.removeItem(CLAVE_TOKEN_FCM);
+        }
+        setPushActivo(false);
+        return;
+      }
       const registro = await navigator.serviceWorker.getRegistration('/sw.js');
       const suscripcion = await registro?.pushManager.getSubscription();
       if (suscripcion) {

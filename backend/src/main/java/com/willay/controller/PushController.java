@@ -2,6 +2,8 @@ package com.willay.controller;
 
 import com.willay.dto.ClavePublicaPushDto;
 import com.willay.dto.DesuscribirPushRequest;
+import com.willay.dto.EliminarFcmTokenRequest;
+import com.willay.dto.RegistrarFcmTokenRequest;
 import com.willay.dto.SuscribirPushRequest;
 import com.willay.service.PushNotificacionService;
 import com.willay.util.CurrentUser;
@@ -41,6 +43,22 @@ public class PushController {
     @Operation(summary = "Elimina una suscripción push (al desactivar notificaciones en ese navegador)")
     public ResponseEntity<Void> desuscribir(@Valid @RequestBody DesuscribirPushRequest req) {
         pushService.desuscribir(CurrentUser.usuarioId(), req.endpoint());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/fcm")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Registra el token de Firebase Cloud Messaging de la app Android del usuario autenticado")
+    public ResponseEntity<Void> registrarTokenFcm(@Valid @RequestBody RegistrarFcmTokenRequest req) {
+        pushService.registrarTokenFcm(CurrentUser.usuarioId(), req.token());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/fcm")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Elimina un token FCM (al cerrar sesión o desinstalar la app)")
+    public ResponseEntity<Void> eliminarTokenFcm(@Valid @RequestBody EliminarFcmTokenRequest req) {
+        pushService.eliminarTokenFcm(CurrentUser.usuarioId(), req.token());
         return ResponseEntity.noContent().build();
     }
 }

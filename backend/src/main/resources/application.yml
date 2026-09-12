@@ -61,6 +61,10 @@ willay:
     vapid-public-key: ${VAPID_PUBLIC_KEY:}
     vapid-private-key: ${VAPID_PRIVATE_KEY:}
     vapid-subject: ${VAPID_SUBJECT:mailto:soporte@willay.app}
+    # JSON completo de la cuenta de servicio de Firebase (Project Settings →
+    # Service Accounts → Generate new private key). Igual que VAPID: sin
+    # configurar, el envío nativo se omite y se registra en el log.
+    firebase-credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
   # Cuenta del proveedor creada al primer arranque si la base está vacía
   bootstrap:
     habilitado: ${BOOTSTRAP_ENABLED:true}
