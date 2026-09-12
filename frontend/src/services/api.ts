@@ -627,6 +627,16 @@ export async function getQrAlumno(alumnoId: number | string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
+/**
+ * QR de respaldo (para cuando el alumno olvida su tarjeta): el contenido
+ * cambia cada pocos segundos — expiraEnSegundos indica cuándo hay que
+ * volver a pedirlo. Una foto guardada de este QR deja de servir casi
+ * de inmediato.
+ */
+export async function getQrDinamicoAlumno(alumnoId: number | string): Promise<{ contenido: string; expiraEnSegundos: number }> {
+  return http(`/api/credenciales/alumno/${alumnoId}/qr-dinamico`, undefined, true);
+}
+
 // ── Configuración inicial ───────────────────────────────────────────
 export async function getSetupEstado(): Promise<SetupEstado> {
   return http<SetupEstado>('/api/setup/estado', undefined, true);
@@ -818,12 +828,16 @@ export function abrirCanalVinculacion(
   return abrirCanalSSE<TarjetaSinAsignarEvento>('/api/asistencia/stream/vincular', 'tarjeta_sin_asignar', alRecibir, alFallar);
 }
 
-/** Simula una pasada de tarjeta. Útil para probar sin el lector físico. */
-export async function simularLectura(tarjeta: string, apiKey: string): Promise<LecturaVivo> {
+/**
+ * Envía una lectura por el mismo camino que usaría el hardware. "Simular
+ * lectura" (admin) la usa para probar sin lector físico; el escáner de QR
+ * de la app la reutiliza tal cual para lecturas reales, pasando metodo:'QR'.
+ */
+export async function simularLectura(tarjeta: string, apiKey: string, metodo?: string): Promise<LecturaVivo> {
   const res = await fetch(url('/api/asistencia/lectura'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
-    body: JSON.stringify({ tarjeta }),
+    body: JSON.stringify({ tarjeta, metodo }),
   });
   if (!res.ok) {
     let m = 'No se pudo registrar la lectura';

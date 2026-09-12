@@ -6,6 +6,7 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+import com.willay.dto.QrDinamicoDto;
 import com.willay.entity.Alumno;
 import com.willay.exception.BusinessException;
 import com.willay.exception.NotFoundException;
@@ -34,6 +35,7 @@ public class CredencialService {
 
     private final AlumnoRepository alumnoRepository;
     private final TarjetaRfidRepository tarjetaRepository;
+    private final QrDinamicoService qrDinamicoService;
 
     @Transactional(readOnly = true)
     public byte[] qrDeAlumno(Long colegioId, Long alumnoId) {
@@ -46,6 +48,19 @@ public class CredencialService {
         // Formato propio, verificable por el lector: WILLAY|colegio|alumno|tarjeta
         String contenido = "WILLAY|" + colegioId + "|" + alumno.getCodigo() + "|" + tarjeta;
         return generarQr(contenido);
+    }
+
+    /**
+     * QR de respaldo (para cuando el alumno olvida su tarjeta): mismo
+     * alumno, pero el contenido cambia cada pocos segundos y el backend
+     * rechaza cualquier copia vencida. Ver QrDinamicoService.
+     */
+    @Transactional(readOnly = true)
+    public QrDinamicoDto tokenDinamicoDeAlumno(Long colegioId, Long alumnoId) {
+        Alumno alumno = alumnoRepository.findByIdAndColegioId(alumnoId, colegioId)
+                .orElseThrow(() -> new NotFoundException("Estudiante no encontrado"));
+        String contenido = qrDinamicoService.generar(colegioId, alumno.getCodigo());
+        return new QrDinamicoDto(contenido, qrDinamicoService.ventanaSegundos());
     }
 
     public byte[] generarQr(String contenido) {

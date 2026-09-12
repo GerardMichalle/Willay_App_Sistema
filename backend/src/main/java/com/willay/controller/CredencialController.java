@@ -1,5 +1,6 @@
 package com.willay.controller;
 
+import com.willay.dto.QrDinamicoDto;
 import com.willay.repository.AlumnoRepository;
 import com.willay.service.CredencialService;
 import com.willay.util.CurrentUser;
@@ -32,6 +33,20 @@ public class CredencialController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
                 .body(credencialService.qrDeAlumno(CurrentUser.colegioId(), id));
+    }
+
+    /**
+     * QR de respaldo para cuando el alumno olvida su tarjeta: cambia cada
+     * pocos segundos, así que el frontend debe volver a pedirlo antes de
+     * que expire (ver expiraEnSegundos). No hay caché: cada respuesta es
+     * distinta a propósito.
+     */
+    @GetMapping("/alumno/{id}/qr-dinamico")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Token de QR dinámico del estudiante (vence en segundos)")
+    public QrDinamicoDto qrDinamico(@PathVariable Long id) {
+        verificarAcceso(id);
+        return credencialService.tokenDinamicoDeAlumno(CurrentUser.colegioId(), id);
     }
 
     /** El QR de un menor solo lo ve el personal, el propio alumno o su apoderado. */

@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Radio, LogIn, LogOut, Loader2, Wifi, WifiOff, Play, CreditCard } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
+import { Radio, LogIn, LogOut, Loader2, Wifi, WifiOff, Play, CreditCard, ScanLine, Settings2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { Avatar, Mono, Pill, Button, StatCard, PanelHead, cn } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import { getLecturasVivo, abrirCanalAsistencia, simularLectura, getPuntosAcceso } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import type { LecturaVivo, PuntoAccesoApi } from '../../types';
+
+const ES_NATIVO = Capacitor.isNativePlatform();
+/** Credencial del lector guardada en este celular: se pide una sola vez. */
+const CLAVE_LECTOR_QR = 'willay-lector-qr-api-key';
 
 /** import.meta.env.DEV es true solo con "npm run dev"; false en el build publicado. */
 const ES_DESARROLLO = import.meta.env.DEV;
 
 export default function ControlVivo() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const esProfesor = usuario?.rol === 'profesor';
   const esAdmin = usuario?.rol === 'admin';
 
@@ -27,6 +35,12 @@ export default function ControlVivo() {
   const [enviando, setEnviando] = useState(false);
   const [errorSim, setErrorSim] = useState<string | null>(null);
   const cerrarCanal = useRef<(() => void) | null>(null);
+
+  // Escáner de QR nativo: el celular actúa como un lector portátil
+  const [claveLector, setClaveLector] = useState(() => localStorage.getItem(CLAVE_LECTOR_QR) ?? '');
+  const [configLectorAbierto, setConfigLectorAbierto] = useState(false);
+  const [claveLectorInput, setClaveLectorInput] = useState(claveLector);
+  const [escaneando, setEscaneando] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -68,6 +82,40 @@ export default function ControlVivo() {
     }
   }
 
+  function guardarClaveLector() {
+    const v = claveLectorInput.trim();
+    localStorage.setItem(CLAVE_LECTOR_QR, v);
+    setClaveLector(v);
+    setConfigLectorAbierto(false);
+  }
+
+  /**
+   * El celular escanea con la cámara y manda la lectura por el mismo
+   * camino que usaría el lector físico (ver simularLectura). Funciona con
+   * el QR estático de la credencial o con el QR dinámico "Mi tarjeta
+   * digital" del alumno — el backend decide cuál es cuál.
+   */
+  async function escanearQr() {
+    if (!claveLector) { setClaveLectorInput(''); setConfigLectorAbierto(true); return; }
+    setEscaneando(true);
+    try {
+      const { available } = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+      if (!available) await BarcodeScanner.installGoogleBarcodeScannerModule();
+
+      const { barcodes } = await BarcodeScanner.scan();
+      const codigo = barcodes[0]?.rawValue ?? barcodes[0]?.displayValue;
+      if (!codigo) return;
+
+      const resultado = await simularLectura(codigo, claveLector, 'QR');
+      toast(`${resultado.nombre} · ${resultado.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} registrada`, 'info');
+      await cargar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo escanear el QR', 'error');
+    } finally {
+      setEscaneando(false);
+    }
+  }
+
   const entradas = lecturas.filter(l => l.tipo === 'ENTRADA').length;
   const salidas = lecturas.filter(l => l.tipo === 'SALIDA').length;
   const tardanzas = lecturas.filter(l => l.estado === 'TARDANZA').length;
@@ -89,11 +137,28 @@ export default function ControlVivo() {
             {conectado && <span className="w-1.5 h-1.5 rounded-full bg-ok dot-live" />}
           </span>
 
-          {esAdmin && ES_DESARROLLO && (
-            <Button variant="ghost" onClick={() => setSimAbierto(true)}>
-              <Play size={14} /> Simular lectura
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {ES_NATIVO && (
+              <>
+                <Button onClick={escanearQr} disabled={escaneando}>
+                  {escaneando ? <Loader2 size={14} className="animate-spin" /> : <ScanLine size={14} />}
+                  Escanear QR
+                </Button>
+                <button
+                  onClick={() => { setClaveLectorInput(claveLector); setConfigLectorAbierto(true); }}
+                  className="grid place-items-center w-8 h-8 rounded-[10px] border border-line text-ink-3 hover:text-ink hover:bg-canvas transition-colors cursor-pointer"
+                  title="Configurar credencial del lector"
+                >
+                  <Settings2 size={14} />
+                </button>
+              </>
+            )}
+            {esAdmin && ES_DESARROLLO && (
+              <Button variant="ghost" onClick={() => setSimAbierto(true)}>
+                <Play size={14} /> Simular lectura
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -200,6 +265,33 @@ X-Api-Key: ${apiKey || '<credencial>'}
 { "tarjeta": "${tarjeta || 'RF-88213'}" }`}
             </pre>
           </div>
+        </Modal>
+      )}
+
+      {/* Credencial del lector para el escáner de QR de este celular */}
+      {ES_NATIVO && (
+        <Modal
+          abierto={configLectorAbierto}
+          titulo="Configurar este celular como lector"
+          subtitulo="Se guarda solo en este dispositivo"
+          onCerrar={() => setConfigLectorAbierto(false)}
+          pie={
+            <>
+              <Button variant="ghost" onClick={() => setConfigLectorAbierto(false)}>Cancelar</Button>
+              <Button onClick={guardarClaveLector} disabled={!claveLectorInput.trim()}>Guardar</Button>
+            </>
+          }
+        >
+          <Campo etiqueta="Credencial del lector" requerido>
+            <input className={`${claseInput} font-mono`} value={claveLectorInput} autoFocus
+              onChange={e => setClaveLectorInput(e.target.value)} placeholder="wly_…" />
+            <p className="text-[11px] text-ink-3 mt-1.5">
+              Regístrala una vez en Configuración → Lectores (por ejemplo, con el nombre
+              "App móvil") y pega aquí la credencial que te entrega. Con esto, este celular
+              queda funcionando como un lector portátil más — no reemplaza los lectores
+              físicos de las puertas.
+            </p>
+          </Campo>
         </Modal>
       )}
     </>

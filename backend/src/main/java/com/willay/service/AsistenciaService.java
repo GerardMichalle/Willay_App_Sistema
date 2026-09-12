@@ -63,6 +63,7 @@ public class AsistenciaService {
     private final PasswordEncoder passwordEncoder;
     private final MonitorAsistenciaService monitor;
     private final AlumnoService alumnoService;
+    private final QrDinamicoService qrDinamicoService;
 
     // ── Recepción de la lectura ──────────────────────────────────────
 
@@ -179,7 +180,19 @@ public class AsistenciaService {
     }
 
     private Alumno resolverAlumno(Long colegioId, String codigoTarjeta) {
-        // Admite tanto el código de tarjeta como el contenido del QR
+        // QR de respaldo (cambia cada pocos segundos, ver QrDinamicoService):
+        // se valida la firma y la vigencia antes de aceptar nada.
+        if (codigoTarjeta.startsWith("WILLAYQR|")) {
+            String codigoAlumno = qrDinamicoService.validar(colegioId, codigoTarjeta);
+            if (codigoAlumno == null) {
+                throw new BusinessException(
+                        "Este código QR ya venció. Pide al alumno que abra su QR de nuevo en la app.");
+            }
+            return alumnoRepository.findByColegioIdAndCodigo(colegioId, codigoAlumno)
+                    .orElseThrow(() -> new NotFoundException("Estudiante no encontrado"));
+        }
+
+        // Admite tanto el código de tarjeta como el contenido del QR estático
         String codigo = codigoTarjeta.startsWith("WILLAY|")
                 ? codigoTarjeta.split("\\|")[2]
                 : codigoTarjeta;

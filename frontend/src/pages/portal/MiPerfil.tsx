@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { Camera, Download, Wifi, Flame, CheckCircle2, Award, Loader2 } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { PanelHead, Mono, Pill, cn } from '../../components/ui';
 import { LogoWillay } from '../../components/Sidebar';
 import {
-  getAlumnos, getQrAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo,
+  getAlumnos, getQrAlumno, getQrDinamicoAlumno, subirFotoPerfil, getEnlaceArchivo, uuidDeRutaArchivo,
   getConductaApi, getLibretas, getHistorialAsistencia,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -39,23 +40,45 @@ function calcularRacha(historial: AsistenciaHistorialApi[]): number {
 }
 
 /**
- * Credencial digital del estudiante.
- * El QR lo emite el backend (GET /api/credenciales/alumno/{id}/qr) y no
- * contiene datos personales: solo identificadores que el lector valida.
+ * QR "de respaldo" en pantalla, para cuando el alumno olvidó su tarjeta
+ * física: a diferencia del QR estático que se descarga para imprimir, este
+ * cambia cada pocos segundos (ver GET .../qr-dinamico) — una foto guardada
+ * deja de servir casi de inmediato. El cronómetro debajo avisa cuándo se
+ * va a renovar, así queda claro que no es una imagen fija reutilizable.
  */
-function QrCredencial({ alumnoId, size = 108 }: { alumnoId: number | null; size?: number }) {
-  const [url, setUrl] = useState<string | null>(null);
+function QrCredencialDinamico({ alumnoId, size = 108 }: { alumnoId: number | null; size?: number }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [segundos, setSegundos] = useState<number | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     if (alumnoId == null) return;
     let vigente = true;
-    let creada: string | null = null;
-    getQrAlumno(alumnoId)
-      .then(u => { if (vigente) { creada = u; setUrl(u); } })
-      .catch(() => setError(true));
-    return () => { vigente = false; if (creada) URL.revokeObjectURL(creada); };
-  }, [alumnoId]);
+
+    async function renovar() {
+      try {
+        const { contenido, expiraEnSegundos } = await getQrDinamicoAlumno(alumnoId!);
+        if (!vigente) return;
+        const url = await QRCode.toDataURL(contenido, { width: size * 3, margin: 1 });
+        if (!vigente) return;
+        setDataUrl(url);
+        setSegundos(expiraEnSegundos);
+        setError(false);
+      } catch {
+        if (vigente) setError(true);
+      }
+    }
+
+    void renovar();
+    const intervalo = setInterval(() => {
+      setSegundos(s => {
+        if (s == null) return s;
+        if (s <= 1) { void renovar(); return null; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => { vigente = false; clearInterval(intervalo); };
+  }, [alumnoId, size]);
 
   if (error || alumnoId == null) {
     return (
@@ -65,15 +88,22 @@ function QrCredencial({ alumnoId, size = 108 }: { alumnoId: number | null; size?
       </div>
     );
   }
-  if (!url) {
+  if (!dataUrl) {
     return (
       <div style={{ width: size, height: size }} className="grid place-items-center rounded-[8px] bg-white/10">
         <Loader2 size={18} className="animate-spin text-white/60" />
       </div>
     );
   }
-  return <img src={url} width={size} height={size} alt="Código QR del estudiante"
-              className="rounded-[8px] bg-white p-1.5 border border-line" />;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <img src={dataUrl} width={size} height={size} alt="Código QR dinámico del estudiante"
+           className="rounded-[8px] bg-white p-1.5 border border-line" />
+      <span className="label-mono !text-[9px] text-white/50">
+        Se renueva en {segundos ?? '…'}s
+      </span>
+    </div>
+  );
 }
 
 export default function MiPerfil() {
@@ -250,7 +280,7 @@ export default function MiPerfil() {
                   <div className="font-mono text-[11px] text-white/70 mt-2">{yo ? `${yo.grado} "${yo.seccion}" · ${yo.codigo}` : "—"}</div>
                   <div className="font-mono text-[13px] font-semibold mt-3 tracking-wider">{yo?.tarjetaRfid ?? "Sin tarjeta"}</div>
                 </div>
-                <QrCredencial alumnoId={alumnoId} />
+                <QrCredencialDinamico alumnoId={alumnoId} />
               </div>
             </div>
             <div className="flex items-center justify-between mt-4">

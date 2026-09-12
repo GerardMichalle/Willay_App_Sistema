@@ -36,4 +36,8 @@
          notificaciones en tiempo de ejecución; sin esto, PushNotifications
          .requestPermissions() no muestra nada. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Escáner de QR (Google ML Kit) para registrar asistencia real desde
+         la cámara del celular, como un lector portátil. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>
