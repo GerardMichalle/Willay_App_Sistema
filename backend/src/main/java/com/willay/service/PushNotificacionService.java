@@ -63,6 +63,7 @@ public class PushNotificacionService {
             @Value("${willay.push.vapid-public-key:}") String clavePublica,
             @Value("${willay.push.vapid-private-key:}") String clavePrivada,
             @Value("${willay.push.vapid-subject:mailto:soporte@willay.app}") String subject,
+            @Value("${willay.push.firebase-credentials-path:}") String firebaseCredencialesPath,
             @Value("${willay.push.firebase-credentials-json:}") String firebaseCredencialesJson) {
         this.suscripcionRepository = suscripcionRepository;
         this.fcmTokenRepository = fcmTokenRepository;
@@ -72,23 +73,35 @@ public class PushNotificacionService {
         this.clavePrivada = clavePrivada;
         this.subject = subject;
         Security.addProvider(new BouncyCastleProvider());
-        this.firebaseListo = inicializarFirebase(firebaseCredencialesJson);
+        this.firebaseListo = inicializarFirebase(firebaseCredencialesPath, firebaseCredencialesJson);
     }
 
     /**
      * Best-effort, igual que VAPID: sin credenciales configuradas (o si son
      * inválidas), el push nativo simplemente se omite — nunca debe impedir
      * que el backend arranque.
+     *
+     * Dos formas de dar la credencial, en orden de preferencia:
+     * 1) FIREBASE_CREDENTIALS_PATH — ruta a el .json de la cuenta de
+     *    servicio en el disco del servidor (fuera del repo). La recomendada:
+     *    el archivo nunca pasa por variables de entorno ni por Git.
+     * 2) FIREBASE_CREDENTIALS_JSON — el contenido completo del .json pegado
+     *    como variable de entorno. Más simple para desarrollo local, pero
+     *    hay que tener cuidado de que ese valor nunca termine en un commit.
      */
-    private boolean inicializarFirebase(String credencialesJson) {
-        if (credencialesJson.isBlank()) {
-            log.info("FIREBASE_CREDENTIALS_JSON no configurado: push nativo (FCM) deshabilitado");
-            return false;
-        }
+    private boolean inicializarFirebase(String credencialesPath, String credencialesJson) {
         try {
+            java.io.InputStream credencialesStream;
+            if (!credencialesPath.isBlank()) {
+                credencialesStream = new java.io.FileInputStream(credencialesPath);
+            } else if (!credencialesJson.isBlank()) {
+                credencialesStream = new ByteArrayInputStream(credencialesJson.getBytes(StandardCharsets.UTF_8));
+            } else {
+                log.info("Sin FIREBASE_CREDENTIALS_PATH ni FIREBASE_CREDENTIALS_JSON: push nativo (FCM) deshabilitado");
+                return false;
+            }
             if (FirebaseApp.getApps().isEmpty()) {
-                GoogleCredentials credenciales = GoogleCredentials.fromStream(
-                        new ByteArrayInputStream(credencialesJson.getBytes(StandardCharsets.UTF_8)));
+                GoogleCredentials credenciales = GoogleCredentials.fromStream(credencialesStream);
                 FirebaseApp.initializeApp(FirebaseOptions.builder().setCredentials(credenciales).build());
             }
             return true;

@@ -52,13 +52,28 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
-      # Push nativo (app Android). Igual de opcional que VAPID arriba: es el
-      # JSON completo de la cuenta de servicio de Firebase, una sola línea.
+      # Push nativo (app Android). Igual de opcional que VAPID arriba: sin
+      # ninguna credencial configurada, PushNotificacionService simplemente
+      # no manda por este canal (lo avisa en el log) y el resto sigue igual.
+      #
+      # Forma recomendada (más segura): guarda el .json de la cuenta de
+      # servicio de Firebase en el servidor, FUERA de este repo, por ejemplo
+      # en ./secrets/firebase-service-account.json — y entonces:
+      #   1) descomenta la línea del volumen más abajo
+      #   2) descomenta/edita FIREBASE_CREDENTIALS_PATH aquí
+      # Dejarlo comentado (como está) es 100% seguro: no rompe nada, el
+      # push nativo simplemente queda deshabilitado hasta que lo actives.
+      # FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-service-account.json
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       LOG_FILE: /var/log/willay/willay.log
     volumes:
       - ./logs:/var/log/willay
+      # Ver arriba: descomenta esta línea SOLO después de crear el archivo
+      # ./secrets/firebase-service-account.json en el servidor — si el
+      # archivo no existe, Docker crea una carpeta vacía en su lugar y el
+      # backend falla al leer la credencial.
+      # - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     ports:
       - "127.0.0.1:8080:8080"   # solo local: el proxy TLS publica al exterior
     logging:
