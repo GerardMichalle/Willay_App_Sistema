@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, LogIn, LogOut, Megaphone, Flag, BookOpen, Loader2 } from 'lucide-react';
-import { getNotificaciones, getNoLeidas, marcarNotificacionLeida, marcarNotificacionesLeidas } from '../services/api';
+import { Bell, Check, LogIn, LogOut, Megaphone, Flag, BookOpen, Loader2, X, Trash2 } from 'lucide-react';
+import {
+  getNotificaciones, getNoLeidas, marcarNotificacionLeida, marcarNotificacionesLeidas,
+  eliminarNotificacion, eliminarNotificaciones,
+} from '../services/api';
 import { Mono, cn } from './ui';
 import type { NotificacionApi } from '../types';
 
@@ -101,6 +104,25 @@ export default function Notificaciones() {
     setLista(l => l.map(n => ({ ...n, leida: true })));
   }
 
+  /** e.stopPropagation(): el botón vive dentro de la fila clicable, no debe navegar. */
+  async function eliminar(e: React.MouseEvent, n: NotificacionApi) {
+    e.stopPropagation();
+    try {
+      await eliminarNotificacion(n.id);
+      setLista(l => l.filter(x => x.id !== n.id));
+      if (!n.leida) setSinLeer(s => Math.max(0, s - 1));
+    } catch { /* si falla, se queda en la lista y se puede reintentar */ }
+  }
+
+  async function eliminarTodas() {
+    if (!window.confirm('¿Borrar todas las notificaciones? No se puede deshacer.')) return;
+    try {
+      await eliminarNotificaciones();
+      setLista([]);
+      setSinLeer(0);
+    } catch { /* sin conexión: se queda como estaba */ }
+  }
+
   /** Marca la individual como leída (si hacía falta) y navega, salvo AVISO_PLATAFORMA. */
   async function alClicNotificacion(n: NotificacionApi) {
     if (!n.leida) {
@@ -137,12 +159,20 @@ export default function Notificaciones() {
           <div className="px-4 py-3 border-b border-line space-y-2.5">
             <div className="flex items-center justify-between">
               <p className="text-[13.5px] font-bold tracking-tight">Notificaciones</p>
-              {sinLeer > 0 && (
-                <button onClick={leerTodas}
-                  className="flex items-center gap-1 text-[11.5px] font-semibold text-brand hover:text-brand-strong cursor-pointer">
-                  <Check size={12} /> Marcar leídas
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {sinLeer > 0 && (
+                  <button onClick={leerTodas}
+                    className="flex items-center gap-1 text-[11.5px] font-semibold text-brand hover:text-brand-strong cursor-pointer">
+                    <Check size={12} /> Marcar leídas
+                  </button>
+                )}
+                {lista.length > 0 && (
+                  <button onClick={eliminarTodas}
+                    className="flex items-center gap-1 text-[11.5px] font-semibold text-ink-3 hover:text-bad cursor-pointer">
+                    <Trash2 size={12} /> Borrar todas
+                  </button>
+                )}
+              </div>
             </div>
             <select
               value={categoria}
@@ -173,6 +203,10 @@ export default function Notificaciones() {
                     {n.cuerpo && <p className="text-[11.5px] text-ink-2 mt-0.5 leading-snug">{n.cuerpo}</p>}
                     <Mono className="!text-[10px] mt-1 block">{n.cuando}</Mono>
                   </div>
+                  <button onClick={e => void eliminar(e, n)} title="Eliminar"
+                    className="shrink-0 self-start grid place-items-center w-6 h-6 rounded-full text-ink-3 hover:bg-bad-soft hover:text-bad transition-colors cursor-pointer">
+                    <X size={12} />
+                  </button>
                 </div>
               ))
             )}

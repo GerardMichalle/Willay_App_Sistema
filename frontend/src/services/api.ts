@@ -127,8 +127,9 @@ async function peticion<T>(metodo: string, ruta: string, body: unknown, conAuth:
   let res: Response;
   try {
     res = await fetch(url(ruta), { method: metodo, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  } catch {
-    throw new Error('No se pudo conectar con el servidor. ¿Está encendido el backend? (docker compose up)');
+  } catch (e) {
+    // Detalle técnico a propósito (temporal): diagnosticar el error real de conexión en la app nativa.
+    throw new Error(`No se pudo conectar (origen: ${window.location.origin} → ${url(ruta)}): ${e instanceof Error ? e.message : String(e)}`);
   }
 
   if (res.status === 401 && conAuth) {
@@ -869,6 +870,14 @@ export async function marcarNotificacionesLeidas(): Promise<void> {
   await http<void>('/api/notificaciones/leer-todas', {}, true);
 }
 
+export async function eliminarNotificacion(id: number): Promise<void> {
+  await httpMetodo<void>('DELETE', `/api/notificaciones/${id}`);
+}
+
+export async function eliminarNotificaciones(): Promise<void> {
+  await httpMetodo<void>('DELETE', '/api/notificaciones');
+}
+
 // ── Comunicados ─────────────────────────────────────────────────────
 export interface DatosComunicado {
   titulo: string; cuerpo: string; dirigidoA: string;
@@ -1020,7 +1029,10 @@ export async function desactivarPuntoAcceso(id: number): Promise<void> {
  */
 export async function getEnlaceArchivo(uuid: string): Promise<string> {
   const r = await http<{ url: string }>(`/api/archivos/${uuid}/enlace`, undefined, true);
-  return r.url;
+  // El backend devuelve una ruta relativa ("/api/archivos/…"): funciona tal
+  // cual en web (mismo origen), pero en la app nativa hay que anteponerle
+  // el origen real del backend — igual que hace url() con fetch/EventSource.
+  return url(r.url);
 }
 
 /** Extrae el UUID de una ruta de archivo tipo "/api/archivos/{uuid}". */

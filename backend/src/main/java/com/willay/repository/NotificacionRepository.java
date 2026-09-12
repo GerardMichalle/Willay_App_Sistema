@@ -33,4 +33,9 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
     @Modifying
     @Query("update Notificacion n set n.leidaEn = :ahora where n.id = :id and n.leidaEn is null")
     void marcarLeidaSiNoLoEstaba(@Param("id") Long id, @Param("ahora") OffsetDateTime ahora);
+
+    /** El where por usuarioId es el control de acceso: nunca borra una notificación ajena. */
+    long deleteByIdAndUsuarioId(Long id, Long usuarioId);
+
+    void deleteByUsuarioId(Long usuarioId);
 }

@@ -30,10 +30,17 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())                       // API stateless con JWT
+            // Conecta el CorsConfigurationSource de CorsConfig con la cadena de
+            // Security — sin esto, Security rechaza el preflight OPTIONS de
+            // cualquier endpoint autenticado antes de que el CORS real se aplique.
+            .cors(Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(e -> e.authenticationEntryPoint(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> auth
+                // El preflight del navegador nunca lleva el header Authorization
+                // todavía — debe pasar siempre, sea cual sea el endpoint real.
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Cambiar la propia contraseña exige sesión real, a diferencia
                 // del resto de /api/auth/** (login/refresh son públicos por diseño).
                 .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()

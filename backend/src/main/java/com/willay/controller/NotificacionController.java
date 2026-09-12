@@ -47,4 +47,18 @@ public class NotificacionController {
         notificacionService.marcarLeida(CurrentUser.usuarioId(), id);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Elimina una notificación (debe pertenecer al usuario autenticado)")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        notificacionService.eliminar(CurrentUser.usuarioId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping
+    @Operation(summary = "Elimina todas las notificaciones del usuario autenticado")
+    public ResponseEntity<Void> eliminarTodas() {
+        notificacionService.eliminarTodas(CurrentUser.usuarioId());
+        return ResponseEntity.noContent().build();
+    }
 }

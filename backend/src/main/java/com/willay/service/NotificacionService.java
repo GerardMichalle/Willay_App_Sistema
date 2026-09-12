@@ -68,6 +68,19 @@ public class NotificacionService {
         notificacionRepository.marcarLeidaSiNoLoEstaba(notificacionId, OffsetDateTime.now());
     }
 
+    /** El propio delete (con usuarioId en el where) ya verifica que sea del usuario: 0 filas = no era suya o no existe. */
+    @Transactional
+    public void eliminar(Long usuarioId, Long notificacionId) {
+        if (notificacionRepository.deleteByIdAndUsuarioId(notificacionId, usuarioId) == 0) {
+            throw new NotFoundException("Notificación no encontrada");
+        }
+    }
+
+    @Transactional
+    public void eliminarTodas(Long usuarioId) {
+        notificacionRepository.deleteByUsuarioId(usuarioId);
+    }
+
     private NotificacionDto aDto(Notificacion n) {
         return new NotificacionDto(n.getId(), n.getTipo(), n.getTitulo(),
                 n.getCuerpo(), tiempoRelativo(n.getCreadoEn()), n.getLeidaEn() != null);
