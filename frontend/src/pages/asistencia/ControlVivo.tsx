@@ -8,6 +8,7 @@ import Modal, { Campo, claseInput } from '../../components/Modal';
 import { getLecturasVivo, abrirCanalAsistencia, simularLectura, getPuntosAcceso } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useColaAsistencia } from '../../hooks/useColaAsistencia';
 import type { LecturaVivo, PuntoAccesoApi } from '../../types';
 
 const ES_NATIVO = Capacitor.isNativePlatform();
@@ -41,6 +42,13 @@ export default function ControlVivo() {
   const [configLectorAbierto, setConfigLectorAbierto] = useState(false);
   const [claveLectorInput, setClaveLectorInput] = useState(claveLector);
   const [escaneando, setEscaneando] = useState(false);
+
+  // Si el escaneo se hace sin internet, la lectura no se pierde: queda
+  // guardada en el celular y se manda sola apenas vuelve la conexión.
+  const { cantidadPendiente, sincronizando, registrar } = useColaAsistencia(resultado => {
+    toast(`Sincronizado: ${resultado.nombre} · ${resultado.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`, 'info');
+    void cargar();
+  });
 
   const cargar = useCallback(async () => {
     try {
@@ -106,9 +114,13 @@ export default function ControlVivo() {
       const codigo = barcodes[0]?.rawValue ?? barcodes[0]?.displayValue;
       if (!codigo) return;
 
-      const resultado = await simularLectura(codigo, claveLector, 'QR');
-      toast(`${resultado.nombre} · ${resultado.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} registrada`, 'info');
-      await cargar();
+      const r = await registrar(codigo, claveLector, 'QR');
+      if (r.estado === 'enviada') {
+        toast(`${r.resultado.nombre} · ${r.resultado.tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} registrada`, 'info');
+        await cargar();
+      } else {
+        toast('Sin conexión: la lectura se guardó en el celular y se enviará sola cuando vuelva internet', 'info');
+      }
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo escanear el QR', 'error');
     } finally {
@@ -151,6 +163,15 @@ export default function ControlVivo() {
                 >
                   <Settings2 size={14} />
                 </button>
+                {cantidadPendiente > 0 && (
+                  <span title="Se guardaron sin conexión, se mandan solas cuando vuelva internet">
+                    <Pill tone="warn">
+                      {sincronizando
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : `${cantidadPendiente} pendiente${cantidadPendiente === 1 ? '' : 's'}`}
+                    </Pill>
+                  </span>
+                )}
               </>
             )}
             {esAdmin && ES_DESARROLLO && (

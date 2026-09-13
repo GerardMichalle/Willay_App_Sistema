@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Menu, X, Clock } from 'lucide-react';
+import { Menu, X, Clock, WifiOff } from 'lucide-react';
 import Sidebar, { LogoWillay } from '../components/Sidebar';
 import Modal from '../components/Modal';
 import { Button } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useInactividad } from '../hooks/useInactividad';
+import { useConexion } from '../hooks/useConexion';
 
 export default function AppLayout() {
   const { usuario } = useAuth();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
   const { advertencia, segundosRestantes, seguirConectado } = useInactividad();
+  const conectado = useConexion();
 
   // Cierra el cajón al cambiar de ruta y bloquea el scroll del fondo mientras está abierto siuuu
   useEffect(() => { setMenuAbierto(false); }, [ubicacion.pathname]);
@@ -46,6 +48,11 @@ export default function AppLayout() {
       </div>
 
       <main className="flex-1 min-w-0">
+        {!conectado && (
+          <div className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-bad text-white text-[12.5px] font-semibold px-4 py-2 lg:top-0">
+            <WifiOff size={14} /> Sin conexión a internet — algunos datos pueden no estar actualizados
+          </div>
+        )}
         {/* Barra superior solo móvil */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between gap-3 bg-paper/90 backdrop-blur border-b border-line px-4 py-3">
           <button
