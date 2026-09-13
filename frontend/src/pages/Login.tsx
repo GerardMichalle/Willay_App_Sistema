@@ -176,6 +176,11 @@ export default function Login() {
           <p className="flex items-center justify-center gap-1.5 label-mono mt-5">
             <Verified size={13} className="text-brand" /> Conexión segura
           </p>
+          <p className="flex items-center justify-center gap-3 text-[11.5px] text-ink-3 mt-3">
+            <Link to="/legal/privacidad" className="hover:text-brand transition-colors">Privacidad</Link>
+            <span aria-hidden>·</span>
+            <Link to="/legal/terminos" className="hover:text-brand transition-colors">Términos</Link>
+          </p>
         </div>
       </div>
     </div>
