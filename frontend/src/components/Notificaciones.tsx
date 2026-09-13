@@ -6,6 +6,7 @@ import {
   eliminarNotificacion, eliminarNotificaciones,
 } from '../services/api';
 import { Mono, cn } from './ui';
+import { useConfirm } from '../context/ConfirmContext';
 import type { NotificacionApi } from '../types';
 
 const ICONO: Record<string, React.ReactNode> = {
@@ -52,6 +53,7 @@ const CATEGORIAS: { etiqueta: string; tipos?: string[] }[] = [
 /** Campana del encabezado: consulta periódicamente los avisos del usuario. */
 export default function Notificaciones() {
   const nav = useNavigate();
+  const confirmar = useConfirm();
   const [abierto, setAbierto] = useState(false);
   const [lista, setLista] = useState<NotificacionApi[]>([]);
   const [categoria, setCategoria] = useState(CATEGORIAS[0].etiqueta);
@@ -115,7 +117,12 @@ export default function Notificaciones() {
   }
 
   async function eliminarTodas() {
-    if (!window.confirm('¿Borrar todas las notificaciones? No se puede deshacer.')) return;
+    const ok = await confirmar({
+      titulo: 'Borrar todas las notificaciones',
+      mensaje: 'Esta acción no se puede deshacer.',
+      textoConfirmar: 'Borrar todas',
+    });
+    if (!ok) return;
     try {
       await eliminarNotificaciones();
       setLista([]);
