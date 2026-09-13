@@ -7,7 +7,12 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.1</version>
+    <!-- Ultimo parche disponible dentro de la linea 3.4.x: esa linea llego
+         a fin de soporte el 31 dic 2025, asi que 3.4.13 es lo mas reciente
+         sin pasar a un upgrade mayor (que implica mas riesgo de romper
+         algo y merece su propia sesion aparte, no mezclado con un parche
+         de seguridad). Incluye el arreglo de CVE-2025-22235, entre otros. -->
+    <version>3.4.13</version>
     <relativePath/>
   </parent>
 
@@ -121,10 +126,13 @@
       <artifactId>httpasyncclient</artifactId>
       <version>4.1.5</version>
     </dependency>
+    <!-- jdk18on (no jdk15on, discontinuado desde 2023 y con CVEs sin
+         parchar: LDAP injection y DoS). Mismos paquetes org.bouncycastle.*,
+         reemplazo directo sin cambios de código. -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
-      <version>1.70</version>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>1.86</version>
     </dependency>
     <dependency>
       <groupId>org.bitbucket.b_c</groupId>
