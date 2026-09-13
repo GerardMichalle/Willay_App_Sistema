@@ -671,6 +671,10 @@ export async function getComunicadosGlobales(): Promise<ComunicadoGlobalApi[]> {
   return http<ComunicadoGlobalApi[]>('/api/superadmin/comunicados-globales', undefined, true);
 }
 
+export async function eliminarComunicadoGlobal(id: number): Promise<void> {
+  await httpMetodo<void>('DELETE', `/api/superadmin/comunicados-globales/${id}`);
+}
+
 export async function actualizarPagoColegio(
   id: number, estadoPago: string, proximoVencimiento: string | null,
 ): Promise<ColegioApi> {

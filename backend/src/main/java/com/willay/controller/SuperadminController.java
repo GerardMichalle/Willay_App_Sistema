@@ -11,7 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,5 +46,12 @@ public class SuperadminController {
     @Operation(summary = "Historial de avisos enviados a los administradores de todos los colegios")
     public List<ComunicadoGlobalDto> comunicadosGlobales() {
         return colegioService.listarComunicadosGlobales();
+    }
+
+    @DeleteMapping("/comunicados-globales/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Elimina un comunicado global del historial (no afecta los avisos ya entregados)")
+    public void eliminarComunicadoGlobal(@PathVariable Long id) {
+        colegioService.eliminarComunicadoGlobal(id);
     }
 }

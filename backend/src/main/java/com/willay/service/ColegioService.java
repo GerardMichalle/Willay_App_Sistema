@@ -244,6 +244,19 @@ public class ColegioService {
                 .toList();
     }
 
+    /**
+     * Solo borra el registro del historial del proveedor — los avisos ya
+     * entregados a cada administrador (Notificacion) son copias
+     * independientes, no se ven afectados.
+     */
+    @Transactional
+    public void eliminarComunicadoGlobal(Long id) {
+        if (!comunicadoGlobalRepository.existsById(id)) {
+            throw new NotFoundException("Comunicado no encontrado");
+        }
+        comunicadoGlobalRepository.deleteById(id);
+    }
+
     private ColegioDto aDto(Colegio c) {
         return new ColegioDto(
                 c.getId(), c.getNombre(), c.getCodigoModular(), c.getRuc(), c.getColorMarca(), c.getLogoUrl(),

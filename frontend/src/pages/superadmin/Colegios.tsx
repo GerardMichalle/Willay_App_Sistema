@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Circle, Copy, ClipboardList, Activity, History, Trash2, StickyNote, Megaphone, Camera } from 'lucide-react';
+import { Plus, Loader2, Building2, Power, Users, GraduationCap, CheckCircle2, Circle, Copy, ClipboardList, Activity, History, Trash2, StickyNote, Megaphone, Camera, X } from 'lucide-react';
 import Topbar from '../../components/Topbar';
 import { StatCard, Mono, Pill, Button, PanelHead } from '../../components/ui';
 import Modal, { Campo, claseInput } from '../../components/Modal';
 import {
   getColegios, crearColegio, cambiarEstadoColegio, getChecklistColegio, getMetricasColegio, getSaludSistema,
   getNotasColegio, crearNotaColegio, eliminarNotaColegio, actualizarPagoColegio, enviarComunicadoGlobal,
-  getComunicadosGlobales, subirLogoColegio, type DatosColegio,
+  getComunicadosGlobales, eliminarComunicadoGlobal, subirLogoColegio, type DatosColegio,
 } from '../../services/api';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useToast } from '../../context/ToastContext';
@@ -273,6 +273,22 @@ export default function Colegios() {
       toast(e instanceof Error ? e.message : 'No se pudo enviar el comunicado');
     } finally {
       setEnviandoComunicado(false);
+    }
+  }
+
+  /** e.stopPropagation(): por si el item alguna vez es clicable, no afecta hoy. */
+  async function eliminarComunicado(e: React.MouseEvent, id: number) {
+    e.stopPropagation();
+    if (!(await confirmar({
+      titulo: 'Borrar este comunicado del historial',
+      mensaje: 'Solo se borra del historial del proveedor. No afecta los avisos ya entregados a los administradores.',
+      textoConfirmar: 'Borrar',
+    }))) return;
+    try {
+      await eliminarComunicadoGlobal(id);
+      setHistorialComunicados(l => l.filter(c => c.id !== id));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'No se pudo borrar el comunicado');
     }
   }
 
@@ -670,13 +686,19 @@ export default function Colegios() {
           ) : (
             <div className="space-y-2 max-h-[200px] overflow-y-auto scroll-thin">
               {historialComunicados.map(c => (
-                <div key={c.id} className="rounded-[10px] border border-line px-3.5 py-2.5">
-                  <p className="text-[12.5px] font-semibold text-ink">{c.titulo}</p>
-                  <p className="text-[12px] text-ink-2 leading-snug mt-0.5">{c.mensaje}</p>
-                  <p className="text-[10.5px] text-ink-3 mt-1.5">
-                    {c.autorNombre} · {new Date(c.creadoEn).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}
-                    {' '}· {c.destinatarios} {c.destinatarios === 1 ? 'administrador' : 'administradores'}
-                  </p>
+                <div key={c.id} className="rounded-[10px] border border-line px-3.5 py-2.5 flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-semibold text-ink">{c.titulo}</p>
+                    <p className="text-[12px] text-ink-2 leading-snug mt-0.5">{c.mensaje}</p>
+                    <p className="text-[10.5px] text-ink-3 mt-1.5">
+                      {c.autorNombre} · {new Date(c.creadoEn).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {' '}· {c.destinatarios} {c.destinatarios === 1 ? 'administrador' : 'administradores'}
+                    </p>
+                  </div>
+                  <button onClick={e => void eliminarComunicado(e, c.id)} title="Borrar del historial"
+                    className="shrink-0 self-start grid place-items-center w-6 h-6 rounded-full text-ink-3 hover:bg-bad-soft hover:text-bad transition-colors cursor-pointer">
+                    <X size={12} />
+                  </button>
                 </div>
               ))}
             </div>
