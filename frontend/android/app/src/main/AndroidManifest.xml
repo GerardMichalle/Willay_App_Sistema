@@ -27,6 +27,15 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Sin esto, las notificaciones push llegan con un ícono genérico
+             (un círculo/campana) en vez del logo de Willay: Android exige un
+             ícono de notificación aparte (silueta blanca sobre transparente,
+             nunca a color — así lo pide el sistema, no es un logo "flojo"). -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notify" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
     </application>
 
     <!-- Permissions -->
