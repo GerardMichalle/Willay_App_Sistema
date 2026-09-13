@@ -44,7 +44,7 @@ export default function TerminosCondiciones() {
           <li>No usar el escáner de QR ni ninguna función de la app para registrar asistencia
             falsa o suplantar a otro estudiante.</li>
           <li>Reportar de inmediato cualquier uso indebido o vulnerabilidad detectada, escribiendo
-            a <a href="mailto:soporte@willay.app">soporte@willay.app</a>.</li>
+            a <a href="mailto:willaysoporte@gmail.com">willaysoporte@gmail.com</a>.</li>
         </ul>
 
         <h2>4 · Permisos de la aplicación móvil</h2>
@@ -95,8 +95,7 @@ export default function TerminosCondiciones() {
 
         <h2>9 · Contacto</h2>
         <p>
-          [PENDIENTE: razón social, RUC y domicilio del responsable]<br />
-          Correo: <a href="mailto:soporte@willay.app">soporte@willay.app</a>
+          Correo: <a href="mailto:willaysoporte@gmail.com">willaysoporte@gmail.com</a>
         </p>
       </div>
     </LayoutLegal>

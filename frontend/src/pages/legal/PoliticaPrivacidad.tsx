@@ -5,8 +5,8 @@ import LayoutLegal from '../../components/LayoutLegal';
  * N.º 29733. Contenido revisado contra el modelo de datos real del
  * sistema (backend/src/main/java/com/willay/entity), no genérico.
  *
- * [PENDIENTE]: completar razón social, RUC y domicilio exactos del
- * responsable/encargado en cuanto estén definidos formalmente.
+ * Contacto: willaysoporte@gmail.com (aún sin razón social/RUC formales —
+ * actualizar el pie de la página cuando la empresa quede constituida).
  */
 export default function PoliticaPrivacidad() {
   return (
@@ -191,7 +191,7 @@ export default function PoliticaPrivacidad() {
         <p>
           Para ejercer estos derechos, contacta primero a tu colegio (titular del banco de
           datos), o escríbenos directamente a{' '}
-          <a href="mailto:soporte@willay.app">soporte@willay.app</a> y coordinaremos con el
+          <a href="mailto:willaysoporte@gmail.com">willaysoporte@gmail.com</a> y coordinaremos con el
           colegio correspondiente. Responderemos dentro de los plazos establecidos por la Ley
           N.º 29733 y su Reglamento.
         </p>
@@ -205,8 +205,7 @@ export default function PoliticaPrivacidad() {
 
         <h2>11 · Contacto</h2>
         <p>
-          [PENDIENTE: razón social, RUC y domicilio del responsable]<br />
-          Correo: <a href="mailto:soporte@willay.app">soporte@willay.app</a>
+          Correo: <a href="mailto:willaysoporte@gmail.com">willaysoporte@gmail.com</a>
         </p>
       </div>
     </LayoutLegal>
