@@ -9,6 +9,7 @@ import ActivarCuenta from './pages/ActivarCuenta';
 import RecuperarContrasena from './pages/RecuperarContrasena';
 import PoliticaPrivacidad from './pages/legal/PoliticaPrivacidad';
 import TerminosCondiciones from './pages/legal/TerminosCondiciones';
+import EliminarCuenta from './pages/legal/EliminarCuenta';
 import Home from './pages/Home';
 import Alumnos from './pages/academico/Alumnos';
 import Aulas from './pages/academico/Aulas';
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/recuperar" element={<RecuperarContrasena />} />
           <Route path="/legal/privacidad" element={<PoliticaPrivacidad />} />
           <Route path="/legal/terminos" element={<TerminosCondiciones />} />
+          <Route path="/legal/eliminar-cuenta" element={<EliminarCuenta />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
 

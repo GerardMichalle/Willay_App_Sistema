@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Users, HeartHandshake, BookOpen, Flag,
   Radio, ListOrdered, Megaphone, TrendingUp, PieChart,
@@ -215,6 +215,13 @@ export default function Sidebar({ enCajon = false, onNavegar }: { enCajon?: bool
           <LogOut size={IC} />
           Cerrar sesión
         </button>
+        <Link
+          to="/legal/eliminar-cuenta"
+          onClick={onNavegar}
+          className="mt-1 flex items-center justify-center rounded-[10px] px-3 py-1.5 text-[11px] text-ink-3 hover:text-ink-2 transition-colors"
+        >
+          Eliminar mi cuenta
+        </Link>
       </div>
     </aside>
   );

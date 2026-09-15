@@ -16,6 +16,7 @@ export default function LayoutLegal({ titulo, actualizado, children }: {
           <nav className="flex items-center gap-4 text-[12.5px] font-medium text-ink-2">
             <Link to="/legal/privacidad" className="hover:text-brand transition-colors">Privacidad</Link>
             <Link to="/legal/terminos" className="hover:text-brand transition-colors">Términos</Link>
+            <Link to="/legal/eliminar-cuenta" className="hover:text-brand transition-colors">Eliminar cuenta</Link>
           </nav>
         </div>
       </header>
